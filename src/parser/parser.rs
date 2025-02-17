@@ -6,6 +6,7 @@ pub struct Parser {
     l: Lexer,
     cur_token: Token,
     peek_token: Token,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -21,6 +22,7 @@ impl Parser {
                 token_type: TokenType::ILLEGAL,
                 literal: String::new(),
             },
+            errors: Vec::<String>::new(),
         };
 
         // 读取两个词法单元，以设置cur_token和peek_token
@@ -34,11 +36,15 @@ impl Parser {
         self.peek_token = self.l.next_token();
     }
 
+    pub fn errors(&self) -> Vec<String> {
+        return self.errors.clone();
+    }
+
     pub fn parse_program(&mut self) -> Program {
         let mut program = Program::new();
 
         // 循环直到遇到 EOF token
-        while self.cur_token.token_type != TokenType::EOF {
+        while !self.cur_token_is(TokenType::EOF) {
             if let Some(stmt) = self.parse_statement() {
                 program.statements.push(stmt);
             }
@@ -47,12 +53,11 @@ impl Parser {
 
         program
     }
-
     fn parse_statement(&mut self) -> Option<NodeType> {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(),
             _ => {
-                println!("parse_statement get None !");
+                // println!("parse_statement get None !");
                 None
             }
         }
@@ -60,7 +65,7 @@ impl Parser {
 
     fn parse_let_statement(&mut self) -> Option<NodeType> {
         if !self.expect_peek(TokenType::IDENT) {
-            println!("Not IDENT");
+            // println!("Not IDENT");
             return None;
         }
 
@@ -70,7 +75,7 @@ impl Parser {
         };
 
         if !self.expect_peek(TokenType::ASSIGN) {
-            println!("Not Assign");
+            // println!("Not Assign");
             return None;
         }
 
@@ -125,7 +130,16 @@ impl Parser {
             self.next_token();
             true
         } else {
+            self.peek_error(t);
             false
         }
+    }
+
+    fn peek_error(&mut self, t: TokenType) {
+        let msg = format!(
+            "expected next token to be {:?},got {:?} instead",
+            t, self.peek_token.token_type
+        );
+        self.errors.push(msg);
     }
 }

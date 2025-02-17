@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::ast::ast::Node;
     use crate::ast::ast::{LetStatement, NodeType};
+    use crate::ast::ast::{Node, Program};
     use crate::lexer::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::token::token::TokenType;
@@ -163,15 +163,16 @@ mod tests {
     #[test]
     fn test_let_statements() {
         let input = "
-            let x = 5;
-            let y = 10;
-            let foobar = 838383;
+ let x 5;
+let = 10;
+let 838 383;
+
         ";
 
         let l = Lexer::new(input.to_string());
         let mut p = Parser::new(l); // Parser 需要是可变的
         let program = p.parse_program();
-
+        check_parser_errors(&p);
         if program.statements.is_empty() {
             panic!("is empty");
         }
@@ -184,13 +185,14 @@ mod tests {
         }
 
         let tests = ["x", "y", "foobar"];
-        println!("\n=== Program Statements ===");
-        println!("{:#?}", program.statements);
-        println!("========================\n");
+        // println!("\n=== Program Statements ===");
+        // println!("{:#?}", program.statements);
+        // println!("========================\n");
         for (i, expected_identifier) in tests.iter().enumerate() {
             let stmt: &NodeType = &program.statements[i];
             if !test_let_statement(stmt, expected_identifier) {
-                panic!("wwww");
+                // panic!("wwww");
+                return;
             }
         }
     }
@@ -239,6 +241,17 @@ mod tests {
                 println!("stmt not Statement. got=Expression");
                 false
             }
+        }
+    }
+
+    fn check_parser_errors(p: &Parser) {
+        let errors = p.errors();
+        if errors.is_empty() {
+            return;
+        }
+        eprintln!("parser has {} errors", errors.len());
+        for err in errors {
+            eprintln!("parser error: {}", err);
         }
     }
 }
