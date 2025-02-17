@@ -1,6 +1,4 @@
-use std::thread::sleep;
-
-use crate::ast::ast::{Expression, Identifier, LetStatement, NodeType, Program};
+use crate::ast::ast::{Identifier, LetStatement, NodeType, Program};
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
 

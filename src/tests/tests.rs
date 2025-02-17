@@ -1,14 +1,11 @@
-use crate::ast::ast::{Identifier, LetStatement, Node, NodeType, Statement};
-use crate::lexer::lexer::Lexer;
-use crate::parser::parser::Parser;
-use crate::token::token::TokenType;
 #[cfg(test)]
 mod tests {
-    use core::panic;
-    use std::any::Any;
-
-    use super::*;
     use crate::ast::ast::Node;
+    use crate::ast::ast::{LetStatement, NodeType};
+    use crate::lexer::lexer::Lexer;
+    use crate::parser::parser::Parser;
+    use crate::token::token::TokenType;
+    use core::panic;
 
     #[test]
     fn test_next_token() {
@@ -187,11 +184,13 @@ mod tests {
         }
 
         let tests = ["x", "y", "foobar"];
-
+        println!("\n=== Program Statements ===");
+        println!("{:#?}", program.statements);
+        println!("========================\n");
         for (i, expected_identifier) in tests.iter().enumerate() {
             let stmt: &NodeType = &program.statements[i];
             if !test_let_statement(stmt, expected_identifier) {
-                return;
+                panic!("wwww");
             }
         }
     }
