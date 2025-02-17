@@ -253,8 +253,9 @@ impl Lexer {
                 }
             }
         }
-
+        // 前移一位，为下一次读ch做准备
         self.read_char();
+
         tok
     }
 }

@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use crate::ast::ast::Node;
     use crate::ast::ast::{LetStatement, NodeType, ReturnStatement};
-    use crate::ast::ast::{Node, Program};
-    use crate::lexer;
     use crate::lexer::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::token::token::TokenType;
@@ -98,8 +97,8 @@ mod tests {
             (TokenType::IDENT, "ten"),
             (TokenType::RPAREN, ")"),
             (TokenType::SEMICOLON, ";"),
-            (TokenType::ILLEGAL, "!"), // Note, you should have a different token.
-            (TokenType::MINUS, "-"),   // You need MINUS token, for example
+            (TokenType::ILLEGAL, "!"),
+            (TokenType::MINUS, "-"),
             (TokenType::SLASH, "/"),
             (TokenType::ASTERISK, "*"),
             (TokenType::INT, "5"),
@@ -163,15 +162,20 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = "
+        let _error_input = "
 let x 5;
 let = 10;
 let 838 383;
+        ";
+        let input = "
+            let x =12;
+            let y=5;
+            let Foo_Bar =100;
 
         ";
 
         let l = Lexer::new(input.to_string());
-        let mut p = Parser::new(l); // Parser 需要是可变的
+        let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parser_errors(&p);
         if program.statements.is_empty() {
@@ -185,7 +189,7 @@ let 838 383;
             );
         }
 
-        let tests = ["x", "y", "foobar"];
+        let tests = ["x", "y", "Foo_Bar"];
         // println!("\n=== Program Statements ===");
         // println!("{:#?}", program.statements);
         // println!("========================\n");
