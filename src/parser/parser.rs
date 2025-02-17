@@ -1,6 +1,6 @@
 use std::thread::sleep;
 
-use crate::ast::ast::{Identifier, LetStatement, NodeType, Program};
+use crate::ast::ast::{Expression, Identifier, LetStatement, NodeType, Program};
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
 
@@ -53,14 +53,16 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<NodeType> {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(),
-            // TokenType::RETURN => self.parse_return_statement(),
-            _ => None, // 暂时忽略其他类型的语句
+            _ => {
+                println!("parse_statement get None !");
+                None
+            }
         }
     }
 
     fn parse_let_statement(&mut self) -> Option<NodeType> {
-        // 期望下一个 token 是标识符
         if !self.expect_peek(TokenType::IDENT) {
+            println!("Not IDENT");
             return None;
         }
 
@@ -69,13 +71,19 @@ impl Parser {
             value: self.cur_token.literal.clone(),
         };
 
-        // 期望下一个 token 是赋值符号
         if !self.expect_peek(TokenType::ASSIGN) {
+            println!("Not Assign");
             return None;
         }
 
-        // TODO: 跳过对表达式的处理，直到遇到分号
-        while !self.cur_token_is(TokenType::SEMICOLON) {
+        self.next_token();
+
+        let value = match self.parse_expression() {
+            Some(expr) => expr,
+            None => return None,
+        };
+
+        if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
         }
 
@@ -85,18 +93,27 @@ impl Parser {
                 literal: "let".to_string(),
             },
             name: Box::new(name),
-            value: Box::new(Identifier {
-                // Temporary placeholder until expression parsing is implemented
-                token: Token {
-                    token_type: TokenType::IDENT,
-                    literal: String::new(),
-                },
-                value: String::new(),
-            }),
+            value: Box::new(value),
         })))
     }
 
-    // 辅助方法
+    // 需要添加表达式解析的方法
+    fn parse_expression(&mut self) -> Option<NodeType> {
+        // 暂时只处理最简单的标识符表达式
+        match self.cur_token.token_type {
+            TokenType::IDENT => Some(NodeType::Expression(Box::new(Identifier {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            }))),
+            TokenType::INT => Some(NodeType::Expression(Box::new(Identifier {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            }))),
+            // 后续会添加更多表达式类型的处理
+            _ => None,
+        }
+    }
+
     fn cur_token_is(&self, t: TokenType) -> bool {
         self.cur_token.token_type == t
     }

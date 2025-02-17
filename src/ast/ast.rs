@@ -67,7 +67,7 @@ impl Node for Program {
 pub struct LetStatement {
     pub token: Token, // token.LET词法单元
     pub name: Box<Identifier>,
-    pub value: Box<dyn Expression>,
+    pub value: Box<NodeType>,
 }
 
 impl Node for LetStatement {
