@@ -1,4 +1,4 @@
-use crate::ast::ast::{Identifier, LetStatement, NodeType, Program};
+use crate::ast::ast::{Identifier, LetStatement, NodeType, Program, ReturnStatement};
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
 
@@ -56,11 +56,32 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<NodeType> {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(),
+            TokenType::RETURN => self.parse_return_statement(),
             _ => {
                 // println!("parse_statement get None !");
                 None
             }
         }
+    }
+
+    fn parse_return_statement(&mut self) -> Option<NodeType> {
+        self.next_token();
+
+        let value = match self.parse_expression() {
+            Some(expr) => expr,
+            None => return None,
+        };
+
+        if self.peek_token_is(TokenType::SEMICOLON) {
+            self.next_token();
+        }
+        Some(NodeType::Statement(Box::new(ReturnStatement {
+            token: Token {
+                token_type: TokenType::RETURN,
+                literal: "return".to_string(),
+            },
+            return_value: Box::new(value),
+        })))
     }
 
     fn parse_let_statement(&mut self) -> Option<NodeType> {

@@ -102,3 +102,22 @@ impl Node for Identifier {
 impl Expression for Identifier {
     fn expression_node(&self) {}
 }
+
+#[derive(Debug)]
+pub struct ReturnStatement {
+    pub token: Token,
+    pub return_value: Box<NodeType>, // NodeType::Expression
+}
+
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Statement for ReturnStatement {
+    fn statement_node(&self) {}
+}

@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::ast::ast::{LetStatement, NodeType};
+    use crate::ast::ast::{LetStatement, NodeType, ReturnStatement};
     use crate::ast::ast::{Node, Program};
+    use crate::lexer;
     use crate::lexer::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::token::token::TokenType;
@@ -163,7 +164,7 @@ mod tests {
     #[test]
     fn test_let_statements() {
         let input = "
- let x 5;
+let x 5;
 let = 10;
 let 838 383;
 
@@ -252,6 +253,50 @@ let 838 383;
         eprintln!("parser has {} errors", errors.len());
         for err in errors {
             eprintln!("parser error: {}", err);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = "
+            return 5;
+            return 10;
+            return 993 322;
+        ";
+
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+
+        check_parser_errors(&p);
+
+        if program.statements.len() != 3 {
+            panic!(
+                "program.statements does not contain 3 statements. got {} ",
+                program.statements.len()
+            );
+        }
+
+        for stmt in &program.statements {
+            match stmt {
+                NodeType::Statement(statement) => {
+                    let return_stmt = match statement.as_any().downcast_ref::<ReturnStatement>() {
+                        Some(rs) => rs,
+                        None => {
+                            panic!("statement not ReturnStatement. got={:?}", statement);
+                        }
+                    };
+                    assert_eq!(
+                        return_stmt.token_literal(),
+                        "return",
+                        "returnStmt.token_literal not 'return',got {}",
+                        return_stmt.token_literal()
+                    )
+                }
+                NodeType::Expression(_) => {
+                    panic!("stmt not Statement. got Expression");
+                }
+            }
         }
     }
 }
