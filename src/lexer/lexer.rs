@@ -21,7 +21,7 @@ impl Lexer {
         keywords.insert("false".to_string(), TokenType::FALSE);
 
         let mut l = Lexer {
-            input: input,
+            input,
             position: 0,
             read_position: 0,
             ch: '\0',

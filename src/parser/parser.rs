@@ -37,7 +37,7 @@ impl Parser {
     }
 
     pub fn errors(&self) -> Vec<String> {
-        return self.errors.clone();
+        self.errors.clone()
     }
 
     pub fn parse_program(&mut self) -> Program {
@@ -67,10 +67,7 @@ impl Parser {
     fn parse_return_statement(&mut self) -> Option<NodeType> {
         self.next_token();
 
-        let value = match self.parse_expression() {
-            Some(expr) => expr,
-            None => return None,
-        };
+        let value = self.parse_expression()?;
 
         if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
