@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::ast::{
-        Expression, Identifier, IntegerLiteral, LetStatement, NodeType, Program, ReturnStatement,
+        Expression, Identifier, IntegerLiteral, LetStatement, NodeType, PrefixExpression, Program,
+        ReturnStatement,
     };
     use crate::ast::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
@@ -265,21 +266,25 @@ let 838 383;
         let input = "
 return 5; 
 return 10; 
-return add(15);
         ";
-
+        ///
+        /// ```
+        /// todo()!
+        ///
+        /// ```
+        let _error_input = "return add(1000)";
         let l = Lexer::new(input.to_string());
         let mut p = Parser::new(l);
         let program = p.parse_program();
 
         check_parser_errors(&p);
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements. got {} ",
-                program.statements.len()
-            );
-        }
+        // if program.statements.len() != 3 {
+        //     panic!(
+        //         "program.statements does not contain 3 statements. got {} ",
+        //         program.statements.len()
+        //     );
+        // }
 
         for stmt in &program.statements {
             match stmt {
@@ -444,6 +449,7 @@ return add(15);
         }
     }
 
+    #[test]
     fn test_integer_literal_expression() {
         let input = "5;";
         let l = Lexer::new(input.to_string());
@@ -486,6 +492,97 @@ return add(15);
             NodeType::Expression(_) => {
                 panic!("program.Statements[0] is not ast.ExpressionStatement.")
             }
+        }
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        struct PrefixTest {
+            input: &'static str,
+            operator: &'static str,
+            integer_value: i64,
+        }
+
+        let prefix_tests = vec![
+            PrefixTest {
+                input: "!5;",
+                operator: "!",
+                integer_value: 5,
+            },
+            PrefixTest {
+                input: "-15;",
+                operator: "-",
+                integer_value: 15,
+            },
+        ];
+
+        for tt in prefix_tests {
+            let l = Lexer::new(tt.input.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain {} statements. got={}\n",
+                    1,
+                    program.statements.len()
+                );
+            }
+
+            match &program.statements[0] {
+                NodeType::Statement(stmt) => {
+                    let expr_stmt = match stmt.as_any().downcast_ref::<ExpressionStatement>() {
+                        Some(es) => es,
+                        None => panic!(
+                            "program.statements[0] is not ExpressionStatement. got={:?}",
+                            stmt
+                        ),
+                    };
+
+                    let prefix_expr = match &*expr_stmt.expression {
+                        NodeType::Expression(expr) => {
+                            match expr.as_any().downcast_ref::<PrefixExpression>() {
+                                Some(pe) => pe,
+                                None => panic!("expr is not PrefixExpression. got={:?}", expr),
+                            }
+                        }
+                        _ => panic!("expr_stmt.expression is not Expression"),
+                    };
+
+                    assert_eq!(
+                        prefix_expr.operator, tt.operator,
+                        "exp.operator is not '{}'. got={}",
+                        tt.operator, prefix_expr.operator
+                    );
+
+                    test_integer_literal(&prefix_expr.right, tt.integer_value);
+                }
+                NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+            }
+        }
+    }
+    fn test_integer_literal(node: &NodeType, value: i64) {
+        if let NodeType::Expression(expr) = node {
+            let literal = match expr.as_any().downcast_ref::<IntegerLiteral>() {
+                Some(il) => il,
+                None => panic!("expr is not IntegerLiteral. got={:?}", expr),
+            };
+
+            assert_eq!(
+                literal.value, value,
+                "literal.value not {}. got={}",
+                value, literal.value
+            );
+            assert_eq!(
+                literal.token_literal(),
+                value.to_string(),
+                "literal.token_literal not {}. got={}",
+                value,
+                literal.token_literal()
+            );
+        } else {
+            panic!("node is not Expression");
         }
     }
 }

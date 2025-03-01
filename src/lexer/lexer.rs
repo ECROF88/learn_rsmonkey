@@ -160,8 +160,8 @@ impl Lexer {
                     };
                 } else {
                     tok = Token {
-                        token_type: TokenType::ILLEGAL,
-                        literal: self.ch.to_string(),
+                        token_type: TokenType::BANG, // 使用 BANG 而不是 ILLEGAL
+                        literal: "!".to_string(),
                     };
                 }
             }

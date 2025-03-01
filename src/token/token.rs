@@ -30,6 +30,7 @@ pub enum TokenType {
     RETURN,
     TRUE,
     FALSE,
+    BANG,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -228,3 +228,33 @@ impl fmt::Display for IntegerLiteral {
         write!(f, "{}", self.token.literal)
     }
 }
+
+#[derive(Debug)]
+pub struct PrefixExpression {
+    pub token: Token, // 前缀词法单元，如!
+    pub operator: String,
+    pub right: Box<NodeType>,
+}
+impl Node for PrefixExpression {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.to_string()
+    }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str("(");
+        out.push_str(&self.operator);
+        match &*self.right {
+            NodeType::Expression(e) => out.push_str(&e.to_string()),
+            NodeType::Statement(s) => out.push_str(&s.to_string()),
+        }
+        out.push_str(")");
+        out
+    }
+}
+
+impl Expression for PrefixExpression {
+    fn expression_node(&self) {}
+}
