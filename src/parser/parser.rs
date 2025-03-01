@@ -1,19 +1,42 @@
-use crate::ast::ast::{Identifier, LetStatement, NodeType, Program, ReturnStatement};
+use crate::ast::ast::{
+    ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node, NodeType, Program,
+    ReturnStatement,
+};
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
+use std::collections::HashMap;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum Precedence {
+    LOWEST,
+    EQUALS,      // ==
+    LESSGREATER, // > or <
+    SUM,         // +
+    PRODUCT,     // *
+    PREFIX,      // -X or !X
+    CALL,        // myFunction(X)
+}
+
+// 前缀解析函数：不需要其他参数，直接返回一个表达式
+type PrefixParseFn = fn(&mut Parser) -> Option<NodeType>;
+
+// 中缀解析函数：接收左侧表达式作为参数，返回一个新表达式
+type InfixParseFn = fn(&mut Parser, NodeType) -> Option<NodeType>;
 pub struct Parser {
     l: Lexer,
     cur_token: Token,
     peek_token: Token,
     errors: Vec<String>,
+    // 前缀解析函数映射表
+    prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
+    // 中缀解析函数映射表
+    infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
 impl Parser {
     pub fn new(l: Lexer) -> Self {
         let mut p = Parser {
             l,
-            // 初始化为空的Token，将在构造函数中更新
             cur_token: Token {
                 token_type: TokenType::ILLEGAL,
                 literal: String::new(),
@@ -22,13 +45,47 @@ impl Parser {
                 token_type: TokenType::ILLEGAL,
                 literal: String::new(),
             },
-            errors: Vec::<String>::new(),
+            errors: Vec::new(),
+            prefix_parse_fns: HashMap::new(),
+            infix_parse_fns: HashMap::new(),
         };
 
         // 读取两个词法单元，以设置cur_token和peek_token
         p.next_token();
         p.next_token();
+
+        p.register_prefix(TokenType::IDENT, Parser::parse_identifier);
         p
+    }
+
+    // 将当前词法单元和字面量提供给Identifier的token和value字段
+    // 该方法不会调用next_token()方法
+    fn parse_identifier(&mut self) -> Option<NodeType> {
+        Some(NodeType::Expression(Box::new(Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        })))
+    }
+
+    fn token_precedence(&self, token_type: TokenType) -> Precedence {
+        match token_type {
+            TokenType::EQ | TokenType::NOTEQ => Precedence::EQUALS,
+            TokenType::LT | TokenType::GT => Precedence::LESSGREATER,
+            TokenType::PLUS | TokenType::MINUS => Precedence::SUM,
+            TokenType::SLASH | TokenType::ASTERISK => Precedence::PRODUCT,
+            TokenType::LPAREN => Precedence::CALL,
+            _ => Precedence::LOWEST,
+        }
+    }
+
+    // 注册前缀解析函数
+    fn register_prefix(&mut self, token_type: TokenType, f: PrefixParseFn) {
+        self.prefix_parse_fns.insert(token_type, f);
+    }
+
+    // 注册中缀解析函数
+    fn register_infix(&mut self, token_type: TokenType, f: InfixParseFn) {
+        self.infix_parse_fns.insert(token_type, f);
     }
 
     fn next_token(&mut self) {
@@ -46,6 +103,7 @@ impl Parser {
         // 循环直到遇到 EOF token
         while !self.cur_token_is(TokenType::EOF) {
             if let Some(stmt) = self.parse_statement() {
+                println!("Parsed statement: {:?}", stmt);
                 program.statements.push(stmt);
             }
             self.next_token();
@@ -53,37 +111,43 @@ impl Parser {
 
         program
     }
+
     fn parse_statement(&mut self) -> Option<NodeType> {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(),
             TokenType::RETURN => self.parse_return_statement(),
+            TokenType::EOF | TokenType::ILLEGAL if self.cur_token.literal.trim().is_empty() => {
+                self.next_token();
+                None
+            }
             _ => {
                 // println!("parse_statement get None !");
-                None
+                self.parse_expression_statement()
             }
         }
     }
 
     fn parse_return_statement(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+
+        // 跳过 return 关键字
         self.next_token();
 
         let value = self.parse_expression()?;
 
+        // 如果有分号，跳过它
         if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
         }
+
         Some(NodeType::Statement(Box::new(ReturnStatement {
-            token: Token {
-                token_type: TokenType::RETURN,
-                literal: "return".to_string(),
-            },
+            token,
             return_value: Box::new(value),
         })))
     }
 
     fn parse_let_statement(&mut self) -> Option<NodeType> {
         if !self.expect_peek(TokenType::IDENT) {
-            // println!("Not IDENT");
             return None;
         }
 
@@ -93,16 +157,12 @@ impl Parser {
         };
 
         if !self.expect_peek(TokenType::ASSIGN) {
-            // println!("Not Assign");
             return None;
         }
 
         self.next_token();
 
-        let value = match self.parse_expression() {
-            Some(expr) => expr,
-            None => return None,
-        };
+        let value = self.parse_expression()?;
 
         if self.peek_token_is(TokenType::SEMICOLON) {
             self.next_token();
@@ -120,18 +180,25 @@ impl Parser {
 
     // 需要添加表达式解析的方法
     fn parse_expression(&mut self) -> Option<NodeType> {
-        // 暂时只处理最简单的标识符表达式
-        match self.cur_token.token_type {
-            TokenType::IDENT => Some(NodeType::Expression(Box::new(Identifier {
-                token: self.cur_token.clone(),
-                value: self.cur_token.literal.clone(),
-            }))),
-            TokenType::INT => Some(NodeType::Expression(Box::new(Identifier {
-                token: self.cur_token.clone(),
-                value: self.cur_token.literal.clone(),
-            }))),
-            // 后续会添加更多表达式类型的处理
-            _ => None,
+        // 查找当前token对应的前缀解析函数
+        if let Some(prefix) = self.prefix_parse_fns.get(&self.cur_token.token_type) {
+            let left_exp = prefix(self)?;
+
+            // TODO: 处理中缀表达式
+            Some(left_exp)
+        } else {
+            // 暂时保持现有的简单实现
+            match self.cur_token.token_type {
+                TokenType::IDENT => Some(NodeType::Expression(Box::new(Identifier {
+                    token: self.cur_token.clone(),
+                    value: self.cur_token.literal.clone(),
+                }))),
+                TokenType::INT => Some(NodeType::Expression(Box::new(Identifier {
+                    token: self.cur_token.clone(),
+                    value: self.cur_token.literal.clone(),
+                }))),
+                _ => None,
+            }
         }
     }
 
@@ -155,9 +222,44 @@ impl Parser {
 
     fn peek_error(&mut self, t: TokenType) {
         let msg = format!(
-            "expected next token to be {:?},got {:?} instead",
+            "expected next token to be {:?}, got {:?} instead",
             t, self.peek_token.token_type
         );
         self.errors.push(msg);
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+
+        if let Some(expression) = self.parse_expression() {
+            if self.peek_token_is(TokenType::SEMICOLON) {
+                self.next_token();
+            }
+
+            let stmt = ExpressionStatement {
+                token,
+                expression: Box::new(expression),
+            };
+
+            Some(NodeType::Statement(Box::new(stmt))) // why is Statement？
+        } else {
+            None
+        }
+    }
+
+    fn parse_integer_literal(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+
+        match token.literal.parse::<i64>() {
+            Ok(value) => Some(NodeType::Expression(Box::new(IntegerLiteral {
+                token,
+                value,
+            }))),
+            Err(_) => {
+                let msg = format!("could not parse {} as integer", self.cur_token.literal);
+                self.errors.push(msg);
+                None
+            }
+        }
     }
 }

@@ -1,3 +1,4 @@
+use core::fmt;
 use std::any::Any;
 
 use crate::token::token::Token;
@@ -6,6 +7,9 @@ use crate::token::token::Token;
 pub trait Node: std::fmt::Debug + Any {
     fn token_literal(&self) -> String;
     fn as_any(&self) -> &dyn Any;
+    fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 // Statement trait代表语句节点
@@ -18,6 +22,7 @@ pub trait Statement: Node + std::fmt::Debug {
 pub trait Expression: Node + std::fmt::Debug {
     fn expression_node(&self);
 }
+
 #[derive(Debug)]
 pub enum NodeType {
     Statement(Box<dyn Statement>),
@@ -34,6 +39,12 @@ impl Node for NodeType {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn to_string(&self) -> String {
+        match self {
+            NodeType::Statement(stmt) => stmt.to_string(),
+            NodeType::Expression(expr) => expr.to_string(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -46,6 +57,21 @@ impl Program {
         Program {
             statements: Vec::new(),
         }
+    }
+    pub fn string(&self) -> String {
+        let mut out = String::new();
+
+        for stmt in &self.statements {
+            out.push_str(&stmt.to_string());
+            if !out.ends_with('\n') {
+                out.push('\n');
+            }
+        }
+        // 删除最后一个换行符
+        if out.ends_with('\n') {
+            out.pop();
+        }
+        out
     }
 }
 
@@ -77,6 +103,19 @@ impl Node for LetStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&self.token_literal());
+        out.push_str(" ");
+        out.push_str(&self.name.value);
+        out.push_str(" = ");
+        match &*self.value {
+            NodeType::Expression(e) => out.push_str(&e.to_string()),
+            NodeType::Statement(s) => out.push_str(&s.to_string()),
+        }
+        out.push_str(";");
+        out
+    }
 }
 
 impl Statement for LetStatement {
@@ -97,12 +136,16 @@ impl Node for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn to_string(&self) -> String {
+        self.value.clone()
+    }
 }
 
 impl Expression for Identifier {
     fn expression_node(&self) {}
 }
 
+/// return <表达式>;
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
@@ -116,8 +159,72 @@ impl Node for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&self.token_literal());
+        out.push_str(" ");
+        match &*self.return_value {
+            NodeType::Expression(e) => out.push_str(&e.to_string()),
+            NodeType::Statement(s) => out.push_str(&s.to_string()),
+        }
+        out.push_str(";");
+        out
+    }
 }
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+}
+
+#[derive(Debug)]
+pub struct ExpressionStatement {
+    pub token: Token,
+    pub expression: Box<NodeType>, // NodeType::Statement
+}
+
+impl Node for ExpressionStatement {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.to_string()
+    }
+    fn to_string(&self) -> String {
+        match &*self.expression {
+            NodeType::Expression(e) => e.to_string(),
+            NodeType::Statement(s) => s.to_string(),
+        }
+    }
+}
+
+impl Statement for ExpressionStatement {
+    fn statement_node(&self) {}
+}
+
+#[derive(Debug)]
+pub struct IntegerLiteral {
+    pub token: Token,
+    pub value: i64,
+}
+
+impl Node for IntegerLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn to_string(&self) -> String {
+        self.token.literal.to_string() // not sure
+    }
+}
+
+impl Expression for IntegerLiteral {
+    fn expression_node(&self) {}
+}
+
+impl fmt::Display for IntegerLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.token.literal)
+    }
 }

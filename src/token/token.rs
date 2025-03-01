@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub enum TokenType {
     LET,
     FN,

@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::ast::ast::Node;
-    use crate::ast::ast::{LetStatement, NodeType, ReturnStatement};
+    use crate::ast::ast::{
+        Expression, Identifier, IntegerLiteral, LetStatement, NodeType, Program, ReturnStatement,
+    };
+    use crate::ast::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
     use crate::parser::parser::Parser;
-    use crate::token::token::TokenType;
+    use crate::token::token::{Token, TokenType};
     use core::panic;
 
     #[test]
@@ -47,9 +49,9 @@ mod tests {
     5 < 10 > 5;
 
     if (5 < 10) {
-    	return true;
+    return true;
     } else {
-    	return false;
+    return false;
     }
 
     10 == 10;
@@ -171,7 +173,6 @@ let 838 383;
             let x =12;
             let y=5;
             let Foo_Bar =100;
-
         ";
 
         let l = Lexer::new(input.to_string());
@@ -196,7 +197,6 @@ let 838 383;
         for (i, expected_identifier) in tests.iter().enumerate() {
             let stmt: &NodeType = &program.statements[i];
             if !test_let_statement(stmt, expected_identifier) {
-                // panic!("wwww");
                 return;
             }
         }
@@ -263,9 +263,9 @@ let 838 383;
     #[test]
     fn test_return_statements() {
         let input = "
-            return 5;
-            return 10;
-            return 993 322;
+return 5; 
+return 10; 
+return add(15);
         ";
 
         let l = Lexer::new(input.to_string());
@@ -300,6 +300,191 @@ let 838 383;
                 NodeType::Expression(_) => {
                     panic!("stmt not Statement. got Expression");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_string() {
+        use crate::ast::ast::{
+            ExpressionStatement, Identifier, LetStatement, NodeType, Program, ReturnStatement,
+        };
+        use crate::token::token::{Token, TokenType};
+
+        // 测试简单标识符
+        let ident = Identifier {
+            token: Token {
+                token_type: TokenType::IDENT,
+                literal: "testVar".to_string(),
+            },
+            value: "testVar".to_string(),
+        };
+        assert_eq!(ident.to_string(), "testVar", "Identifier to_string failed");
+
+        // 测试let语句
+        let let_stmt = LetStatement {
+            token: Token {
+                token_type: TokenType::LET,
+                literal: "let".to_string(),
+            },
+            name: Box::new(Identifier {
+                token: Token {
+                    token_type: TokenType::IDENT,
+                    literal: "x".to_string(),
+                },
+                value: "x".to_string(),
+            }),
+            value: Box::new(NodeType::Expression(Box::new(Identifier {
+                token: Token {
+                    token_type: TokenType::IDENT,
+                    literal: "y".to_string(),
+                },
+                value: "y".to_string(),
+            }))),
+        };
+        assert_eq!(
+            let_stmt.to_string(),
+            "let x = y;",
+            "LetStatement to_string failed"
+        );
+
+        // 测试return语句
+        let return_stmt = ReturnStatement {
+            token: Token {
+                token_type: TokenType::RETURN,
+                literal: "return".to_string(),
+            },
+            return_value: Box::new(NodeType::Expression(Box::new(Identifier {
+                token: Token {
+                    token_type: TokenType::IDENT,
+                    literal: "result".to_string(),
+                },
+                value: "result".to_string(),
+            }))),
+        };
+        assert_eq!(
+            return_stmt.to_string(),
+            "return result;",
+            "ReturnStatement to_string failed"
+        );
+
+        // 测试表达式语句
+        let expr_stmt = ExpressionStatement {
+            token: Token {
+                token_type: TokenType::IDENT,
+                literal: "x".to_string(),
+            },
+            expression: Box::new(NodeType::Expression(Box::new(Identifier {
+                token: Token {
+                    token_type: TokenType::IDENT,
+                    literal: "x".to_string(),
+                },
+                value: "x".to_string(),
+            }))),
+        };
+        assert_eq!(
+            expr_stmt.to_string(),
+            "x",
+            "ExpressionStatement to_string failed"
+        );
+
+        // 测试完整程序
+        let program = Program {
+            statements: vec![
+                NodeType::Statement(Box::new(let_stmt)),
+                NodeType::Statement(Box::new(return_stmt)),
+                NodeType::Statement(Box::new(expr_stmt)),
+            ],
+        };
+
+        let expected = "let x = y;\nreturn result;\nx";
+        assert_eq!(
+            program.string(),
+            expected,
+            "Program to_string wrong. got={}",
+            program.string()
+        );
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program has not enough statements. got={}",
+                program.statements.len()
+            );
+        }
+
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                let expr_stmt = stmt
+                    .as_any()
+                    .downcast_ref::<ExpressionStatement>()
+                    .expect("stmt not ExpressionStatement");
+
+                let expr = &*expr_stmt.expression;
+                if let NodeType::Expression(e) = expr {
+                    let ident = e
+                        .as_any()
+                        .downcast_ref::<Identifier>()
+                        .expect("not Identifier");
+                    assert_eq!(ident.value, "foobar");
+                    assert_eq!(ident.token_literal(), "foobar");
+                }
+            }
+            NodeType::Expression(_) => panic!("program.statements[0] not Statement"),
+        }
+    }
+
+    fn test_integer_literal_expression() {
+        let input = "5;";
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program has not enough statement.got {}",
+                program.statements.len()
+            );
+        }
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                let expr_stmt = stmt
+                    .as_any()
+                    .downcast_ref::<ExpressionStatement>()
+                    .expect("stmt not ExpressionStatement");
+                if let NodeType::Expression(expr) = &*expr_stmt.expression {
+                    let literal = expr
+                        .as_any()
+                        .downcast_ref::<IntegerLiteral>()
+                        .expect("expr not IntegerLiteral");
+
+                    assert_eq!(
+                        literal.value, 5,
+                        "literal.value not {}. got={}",
+                        5, literal.value
+                    );
+                    assert_eq!(
+                        literal.token_literal(),
+                        "5",
+                        "literal.token_literal not {}. got={}",
+                        "5",
+                        literal.token_literal()
+                    );
+                }
+            }
+            NodeType::Expression(_) => {
+                panic!("program.Statements[0] is not ast.ExpressionStatement.")
             }
         }
     }
