@@ -532,22 +532,17 @@ return 10;
 
             match &program.statements[0] {
                 NodeType::Statement(stmt) => {
-                    let expr_stmt = match stmt.as_any().downcast_ref::<ExpressionStatement>() {
-                        Some(es) => es,
-                        None => panic!(
-                            "program.statements[0] is not ExpressionStatement. got={:?}",
-                            stmt
-                        ),
-                    };
+                    let expr_stmt = stmt
+                        .as_any()
+                        .downcast_ref::<ExpressionStatement>()
+                        .expect("program.statements[0] is not ExpressionStatement");
 
                     let prefix_expr = match &*expr_stmt.expression {
-                        NodeType::Expression(expr) => {
-                            match expr.as_any().downcast_ref::<PrefixExpression>() {
-                                Some(pe) => pe,
-                                None => panic!("expr is not PrefixExpression. got={:?}", expr),
-                            }
-                        }
-                        _ => panic!("expr_stmt.expression is not Expression"),
+                        NodeType::Expression(expr) => expr
+                            .as_any()
+                            .downcast_ref::<PrefixExpression>()
+                            .expect("expression is not PrefixExpression"),
+                        _ => panic!("not an Expression type"),
                     };
 
                     assert_eq!(
