@@ -580,4 +580,101 @@ return 10;
             panic!("node is not Expression");
         }
     }
+
+    // 中缀表达式
+    #[test]
+    fn test_parsing_infix_expressions() {
+        struct InfixTest {
+            input: String,
+            left_value: i64,
+            operator: String,
+            right_value: i64,
+        }
+        let infix_tests = vec![
+            InfixTest {
+                input: "5 + 5;".to_string(),
+                left_value: 5,
+                operator: "+".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 - 5;".to_string(),
+                left_value: 5,
+                operator: "-".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 * 5;".to_string(),
+                left_value: 5,
+                operator: "*".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 / 5;".to_string(),
+                left_value: 5,
+                operator: "/".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 > 5;".to_string(),
+                left_value: 5,
+                operator: ">".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 < 5;".to_string(),
+                left_value: 5,
+                operator: "<".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 == 5;".to_string(),
+                left_value: 5,
+                operator: "==".to_string(),
+                right_value: 5,
+            },
+            InfixTest {
+                input: "5 != 5;".to_string(),
+                left_value: 5,
+                operator: "!=".to_string(),
+                right_value: 5,
+            },
+        ];
+
+        for tt in infix_tests {
+            let l = Lexer::new(tt.input.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.Statements does not contain 1 statements. got={}",
+                    program.statements.len()
+                );
+            }
+
+            match &program.statements[0] {
+                NodeType::Statement(stmt) => {
+                    let expr_stmt = stmt
+                        .as_any()
+                        .downcast_ref::<ExpressionStatement>()
+                        .expect("not expression stetement");
+
+                    let expr = match &*expr_stmt.expression {
+                        NodeType::Expression(expr) => expr
+                            .as_any()
+                            .downcast_ref::<InfixExpression>()
+                            .expect("not InfixExpression"),
+                        _ => panic!("not an Expression type"),
+                    };
+                    test_integer_literal(&expr.left, tt.left_value);
+                    assert_eq!(expr.operator, tt.operator);
+
+                    test_integer_literal(&expr.right, tt.right_value);
+                }
+                NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+            }
+        }
+    }
 }
