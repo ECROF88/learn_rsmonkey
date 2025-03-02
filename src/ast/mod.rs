@@ -311,3 +311,74 @@ impl Node for Boolean {
 impl Expression for Boolean {
     fn expression_node(&self) {}
 }
+
+// if 表达式
+#[derive(Debug)]
+pub struct IfExpression {
+    pub token: Token,                             // 'if'词法单元
+    pub condition: Box<NodeType>,                 // 条件表达式
+    pub consequence: Box<BlockStatement>,         // 如果条件为真时执行的语句块
+    pub alternative: Option<Box<BlockStatement>>, // 可选的else语句块
+}
+
+impl Node for IfExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        out.push_str("if");
+        out.push_str(&self.condition.to_string());
+        out.push_str(" ");
+        out.push_str(&self.consequence.to_string());
+
+        // 如果有else分支，则添加
+        if let Some(alt) = &self.alternative {
+            out.push_str("else ");
+            out.push_str(&alt.to_string());
+        }
+
+        out
+    }
+}
+
+impl Expression for IfExpression {
+    fn expression_node(&self) {}
+}
+
+// 定义BlockStatement结构体
+#[derive(Debug)]
+pub struct BlockStatement {
+    pub token: Token, // { 词法单元
+    pub statements: Vec<NodeType>,
+}
+
+impl Node for BlockStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        for stmt in &self.statements {
+            out.push_str(&stmt.to_string());
+        }
+
+        out
+    }
+}
+
+impl Statement for BlockStatement {
+    fn statement_node(&self) {}
+}

@@ -230,12 +230,21 @@ impl Lexer {
             _ => {
                 if Self::is_letter(self.ch) {
                     let identifier = self.read_identifier();
+                    // let token_type = if identifier.eq_ignore_ascii_case("true") {
+                    //     TokenType::TRUE
+                    // } else if identifier.eq_ignore_ascii_case("false") {
+                    //     TokenType::FALSE
+                    // } else {
+                    //     self.keywords
+                    //         .get(&identifier)
+                    //         .cloned()
+                    //         .unwrap_or(TokenType::IDENT)
+                    // };
                     let token_type = self
                         .keywords
                         .get(&identifier)
                         .cloned()
                         .unwrap_or(TokenType::IDENT);
-                    // 如果不是关键字就是IDENT
                     return Token {
                         token_type,
                         literal: identifier,

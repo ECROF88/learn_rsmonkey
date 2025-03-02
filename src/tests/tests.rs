@@ -266,25 +266,20 @@ let 838 383;
         let input = "
 return 5; 
 return 10; 
-        ";
-        ///
-        /// ```
-        /// todo()!
-        ///
-        /// ```
-        let _error_input = "return add(1000)";
+";
+
         let l = Lexer::new(input.to_string());
         let mut p = Parser::new(l);
         let program = p.parse_program();
 
         check_parser_errors(&p);
 
-        // if program.statements.len() != 3 {
-        //     panic!(
-        //         "program.statements does not contain 3 statements. got {} ",
-        //         program.statements.len()
-        //     );
-        // }
+        if program.statements.len() != 2 {
+            panic!(
+                "program.statements does not contain 3 statements. got {} ",
+                program.statements.len()
+            );
+        }
 
         for stmt in &program.statements {
             match stmt {
@@ -300,7 +295,7 @@ return 10;
                         "return",
                         "returnStmt.token_literal not 'return',got {}",
                         return_stmt.token_literal()
-                    )
+                    );
                 }
                 NodeType::Expression(_) => {
                     panic!("stmt not Statement. got Expression");
@@ -451,7 +446,7 @@ return 10;
 
     #[test]
     fn test_boolean_expression() {
-        let input = "TRUE";
+        let input = "true";
         let l = Lexer::new(input.to_string());
         let mut p = Parser::new(l);
         let program = p.parse_program();
@@ -473,10 +468,7 @@ return 10;
 
                 let expr = &*expr_stmt.expression;
                 if let NodeType::Expression(e) = expr {
-                    let ident = e
-                        .as_any()
-                        .downcast_ref::<Boolean>()
-                        .expect("not Identifier");
+                    let ident = e.as_any().downcast_ref::<Boolean>().expect("not Boolean");
                     assert_eq!(ident.value, true);
                     assert_eq!(ident.token_literal(), "TRUE");
                 }
@@ -603,10 +595,9 @@ return 10;
                         tt.operator, prefix_expr.operator
                     );
 
-                    // test_integer_literal(&prefix_expr.right, tt.integer_value);
                     match tt.value {
-                        TestValue::Boolean(bo) => test_boolean_literal(&expr_stmt.expression, bo),
-                        TestValue::Int(value) => test_integer_literal(&expr_stmt.expression, value),
+                        TestValue::Boolean(bo) => test_boolean_literal(&prefix_expr.right, bo),
+                        TestValue::Int(value) => test_integer_literal(&prefix_expr.right, value),
                     };
                 }
                 NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
@@ -618,18 +609,18 @@ return 10;
             let literal = match expr.as_any().downcast_ref::<IntegerLiteral>() {
                 Some(il) => il,
                 None => {
-                    eprintln!("expr is not IntegerLiteral. got={:?}", expr);
+                    panic!("expr is not IntegerLiteral. got={:?}", expr);
                     return false;
                 }
             };
 
             if literal.value != value {
-                eprintln!("literal.value not {}. got={}", value, literal.value);
+                panic!("literal.value not {}. got={}", value, literal.value);
                 return false;
             }
 
             if literal.token_literal() != value.to_string() {
-                eprintln!(
+                panic!(
                     "literal.token_literal not {}. got={}",
                     value,
                     literal.token_literal()
@@ -639,7 +630,7 @@ return 10;
 
             true
         } else {
-            eprintln!("node is not Expression");
+            panic!("node is not Expression");
             false
         }
     }
@@ -929,18 +920,18 @@ return 10;
             let ident = match expr.as_any().downcast_ref::<Identifier>() {
                 Some(id) => id,
                 None => {
-                    eprintln!("expr is not Identifier. got={:?}", expr);
+                    panic!("expr is not Identifier. got={:?}", expr);
                     return false;
                 }
             };
 
             if ident.value != value {
-                eprintln!("ident.value not {}. got={}", value, ident.value);
+                panic!("ident.value not {}. got={}", value, ident.value);
                 return false;
             }
 
             if ident.token_literal() != value {
-                eprintln!(
+                panic!(
                     "ident.token_literal not {}. got={}",
                     value,
                     ident.token_literal()
@@ -950,7 +941,7 @@ return 10;
 
             true
         } else {
-            eprintln!("node is not Expression");
+            panic!("node is not Expression");
             false
         }
     }
@@ -972,19 +963,19 @@ return 10;
             let bo = match expr.as_any().downcast_ref::<Boolean>() {
                 Some(bo) => bo,
                 None => {
-                    eprintln!("exp is not Boolean.got {:?}", expr);
+                    panic!("exp is not Boolean.got {:?}", expr);
                     return false;
                 }
             };
 
             if bo.value != value {
-                eprintln!("bo.value not {},got {}", value, bo.value);
+                panic!("bo.value not {},got {}", value, bo.value);
                 return false;
             }
 
             let expected_literal = if value { "true" } else { "false" };
             if bo.token_literal() != expected_literal {
-                eprintln!(
+                panic!(
                     "bo.token_literal not {}. got={}",
                     expected_literal,
                     bo.token_literal()
@@ -993,7 +984,7 @@ return 10;
             }
             return true;
         } else {
-            eprintln!("node is not Expression");
+            panic!("node is not Expression");
             return false;
         }
     }
@@ -1021,7 +1012,7 @@ return 10;
 
                 // 检查操作符
                 if op_exp.operator != operator {
-                    eprintln!(
+                    panic!(
                         "exp.operator is not '{}'. got='{}'",
                         operator, op_exp.operator
                     );
@@ -1035,12 +1026,14 @@ return 10;
 
                 true
             } else {
-                eprintln!("exp is not InfixExpression. got={:?}", expr);
+                panic!("exp is not InfixExpression. got={:?}", expr);
                 false
             }
         } else {
-            eprintln!("exp is not Expression");
+            panic!("exp is not Expression");
             false
         }
     }
+
+    // #[test]
 }

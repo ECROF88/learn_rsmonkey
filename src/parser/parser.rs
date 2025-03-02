@@ -330,6 +330,7 @@ impl Parser {
 
     fn parse_grouped_expression(&mut self) -> Option<NodeType> {
         self.next_token();
+        // 只要提高括号内部表达式的优先级
         let exp = self.parse_expression(Precedence::LOWEST);
         if !self.expect_peek(TokenType::RPAREN) {
             return None;
