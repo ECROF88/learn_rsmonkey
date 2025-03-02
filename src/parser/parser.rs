@@ -1,11 +1,10 @@
 use crate::ast::ast::{
-    ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node, NodeType,
+    ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
     PrefixExpression, Program, ReturnStatement,
 };
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
 use std::collections::HashMap;
-use std::fs::OpenOptions;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Precedence {
@@ -59,6 +58,17 @@ impl Parser {
         p.register_prefix(TokenType::INT, Parser::parse_integer_literal);
         p.register_prefix(TokenType::BANG, Parser::parse_prefix_expression); // 对应 !
         p.register_prefix(TokenType::MINUS, Parser::parse_prefix_expression); // 对应 -
+
+        // 注册中缀解析函数
+        p.register_infix(TokenType::PLUS, Parser::parse_infix_expression);
+        p.register_infix(TokenType::MINUS, Parser::parse_infix_expression);
+        p.register_infix(TokenType::SLASH, Parser::parse_infix_expression);
+        p.register_infix(TokenType::ASTERISK, Parser::parse_infix_expression);
+        p.register_infix(TokenType::EQ, Parser::parse_infix_expression);
+        p.register_infix(TokenType::NOTEQ, Parser::parse_infix_expression);
+        p.register_infix(TokenType::LT, Parser::parse_infix_expression);
+        p.register_infix(TokenType::GT, Parser::parse_infix_expression);
+
         p
     }
 
@@ -80,6 +90,14 @@ impl Parser {
             TokenType::LPAREN => Precedence::CALL,
             _ => Precedence::LOWEST,
         }
+    }
+
+    fn cur_precedence(&self) -> Precedence {
+        self.token_precedence(self.cur_token.token_type)
+    }
+
+    fn peek_precedence(&self) -> Precedence {
+        self.token_precedence(self.peek_token.token_type)
     }
 
     // 注册前缀解析函数
@@ -190,10 +208,18 @@ impl Parser {
     // 需要添加表达式解析的方法
     fn parse_expression(&mut self, precedence: Precedence) -> Option<NodeType> {
         // 查找当前token对应的前缀解析函数
-        if let Some(prefix) = self.prefix_parse_fns.get(&self.cur_token.token_type) {
-            let left_exp = prefix(self)?;
+        if let Some(&prefix) = self.prefix_parse_fns.get(&self.cur_token.token_type) {
+            let mut left_exp = prefix(self)?;
 
-            // TODO: 处理中缀表达式
+            while !self.peek_token_is(TokenType::SEMICOLON) && precedence < self.peek_precedence() {
+                if let Some(&infix) = self.infix_parse_fns.get(&self.peek_token.token_type) {
+                    self.next_token();
+                    left_exp = infix(self, left_exp)?;
+                } else {
+                    return Some(left_exp);
+                }
+            }
+
             Some(left_exp)
         } else {
             // println!("simple imple");
@@ -285,6 +311,22 @@ impl Parser {
 
         Some(NodeType::Expression(Box::new(PrefixExpression {
             token,
+            operator,
+            right: Box::new(right),
+        })))
+    }
+
+    fn parse_infix_expression(&mut self, left: NodeType) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+        let operator = self.cur_token.literal.clone();
+
+        let precedence = self.cur_precedence();
+        self.next_token();
+        let right = self.parse_expression(precedence)?;
+
+        Some(NodeType::Expression(Box::new(InfixExpression {
+            token,
+            left: Box::new(left),
             operator,
             right: Box::new(right),
         })))

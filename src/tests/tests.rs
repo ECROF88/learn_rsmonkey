@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::ast::{
-        Expression, Identifier, IntegerLiteral, LetStatement, NodeType, PrefixExpression, Program,
-        ReturnStatement,
+        Expression, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
+        PrefixExpression, Program, ReturnStatement,
     };
     use crate::ast::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;

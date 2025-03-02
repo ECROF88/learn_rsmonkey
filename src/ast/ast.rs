@@ -258,3 +258,41 @@ impl Node for PrefixExpression {
 impl Expression for PrefixExpression {
     fn expression_node(&self) {}
 }
+
+#[derive(Debug)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Box<NodeType>,
+    pub operator: String,
+    pub right: Box<NodeType>,
+}
+
+impl Node for InfixExpression {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.to_string()
+    }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str("(");
+        match &*self.left {
+            NodeType::Expression(e) => out.push_str(&e.to_string()),
+            NodeType::Statement(s) => out.push_str(&s.to_string()),
+        };
+        out.push_str(" ");
+        out.push_str(&self.operator);
+        out.push_str(" ");
+        match &*self.right {
+            NodeType::Expression(e) => out.push_str(&e.to_string()),
+            NodeType::Statement(s) => out.push_str(&s.to_string()),
+        };
+        out.push_str(")");
+
+        out
+    }
+}
+impl Expression for InfixExpression {
+    fn expression_node(&self) {}
+}
