@@ -100,7 +100,7 @@ mod tests {
             (TokenType::IDENT, "ten"),
             (TokenType::RPAREN, ")"),
             (TokenType::SEMICOLON, ";"),
-            (TokenType::ILLEGAL, "!"),
+            (TokenType::BANG, "!"),
             (TokenType::MINUS, "-"),
             (TokenType::SLASH, "/"),
             (TokenType::ASTERISK, "*"),
@@ -402,7 +402,7 @@ return 10;
             ],
         };
 
-        let expected = "let x = y;\nreturn result;\nx";
+        let expected = "let x = y;return result;x";
         assert_eq!(
             program.to_string(),
             expected,
@@ -557,27 +557,34 @@ return 10;
             }
         }
     }
-    fn test_integer_literal(node: &NodeType, value: i64) {
+    fn test_integer_literal(node: &NodeType, value: i64) -> bool {
         if let NodeType::Expression(expr) = node {
             let literal = match expr.as_any().downcast_ref::<IntegerLiteral>() {
                 Some(il) => il,
-                None => panic!("expr is not IntegerLiteral. got={:?}", expr),
+                None => {
+                    eprintln!("expr is not IntegerLiteral. got={:?}", expr);
+                    return false;
+                }
             };
 
-            assert_eq!(
-                literal.value, value,
-                "literal.value not {}. got={}",
-                value, literal.value
-            );
-            assert_eq!(
-                literal.token_literal(),
-                value.to_string(),
-                "literal.token_literal not {}. got={}",
-                value,
-                literal.token_literal()
-            );
+            if literal.value != value {
+                eprintln!("literal.value not {}. got={}", value, literal.value);
+                return false;
+            }
+
+            if literal.token_literal() != value.to_string() {
+                eprintln!(
+                    "literal.token_literal not {}. got={}",
+                    value,
+                    literal.token_literal()
+                );
+                return false;
+            }
+
+            true
         } else {
-            panic!("node is not Expression");
+            eprintln!("node is not Expression");
+            false
         }
     }
 
@@ -748,6 +755,93 @@ return 10;
                 "expected={}, got={}",
                 tt.expected, actual
             );
+        }
+    }
+
+    fn test_identifier(node: &NodeType, value: &str) -> bool {
+        if let NodeType::Expression(expr) = node {
+            let ident = match expr.as_any().downcast_ref::<Identifier>() {
+                Some(id) => id,
+                None => {
+                    eprintln!("expr is not Identifier. got={:?}", expr);
+                    return false;
+                }
+            };
+
+            if ident.value != value {
+                eprintln!("ident.value not {}. got={}", value, ident.value);
+                return false;
+            }
+
+            if ident.token_literal() != value {
+                eprintln!(
+                    "ident.token_literal not {}. got={}",
+                    value,
+                    ident.token_literal()
+                );
+                return false;
+            }
+
+            true
+        } else {
+            eprintln!("node is not Expression");
+            false
+        }
+    }
+    enum ExpectedValue<'a> {
+        Integer(i64),
+        String(&'a str),
+    }
+    fn test_literal_expression(exp: &NodeType, expected: ExpectedValue) -> bool {
+        match expected {
+            ExpectedValue::Integer(value) => test_integer_literal(exp, value),
+            ExpectedValue::String(value) => test_identifier(exp, value),
+        }
+    }
+
+    fn test_infix_expression(
+        exp: &NodeType,
+        left: ExpectedValue,
+        operator: &str,
+        right: ExpectedValue,
+    ) -> bool {
+        if let NodeType::Expression(expr) = exp {
+            // let op_exp = match expr.as_any().downcast_ref::<InfixExpression>() {
+            //     Some(op) => op,
+            //     None => {
+            //         eprintln!("exp is not InfixExpression. got={:?}", expr);
+            //         return false;
+            //     }
+            // };
+            if let Some(op) = expr.as_any().downcast_ref::<InfixExpression>() {
+                let op_exp = op;
+
+                if !test_literal_expression(&op_exp.left, left) {
+                    return false;
+                }
+
+                // 检查操作符
+                if op_exp.operator != operator {
+                    eprintln!(
+                        "exp.operator is not '{}'. got='{}'",
+                        operator, op_exp.operator
+                    );
+                    return false;
+                }
+
+                // 测试右操作数
+                if !test_literal_expression(&op_exp.right, right) {
+                    return false;
+                }
+
+                true
+            } else {
+                eprintln!("exp is not InfixExpression. got={:?}", expr);
+                false
+            }
+        } else {
+            eprintln!("exp is not Expression");
+            false
         }
     }
 }
