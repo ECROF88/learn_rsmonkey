@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use crate::ast::ast::{
-        Expression, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
-        PrefixExpression, Program, ReturnStatement,
+    use crate::ast::{
+        Boolean, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
+        PrefixExpression, ReturnStatement,
     };
-    use crate::ast::ast::{ExpressionStatement, Node};
+    use crate::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
     use crate::parser::parser::Parser;
-    use crate::token::token::{Token, TokenType};
+    use crate::token::token::TokenType;
     use core::panic;
 
     #[test]
@@ -311,7 +311,7 @@ return 10;
 
     #[test]
     fn test_to_string() {
-        use crate::ast::ast::{
+        use crate::ast::{
             ExpressionStatement, Identifier, LetStatement, NodeType, Program, ReturnStatement,
         };
         use crate::token::token::{Token, TokenType};
@@ -443,6 +443,42 @@ return 10;
                         .expect("not Identifier");
                     assert_eq!(ident.value, "foobar");
                     assert_eq!(ident.token_literal(), "foobar");
+                }
+            }
+            NodeType::Expression(_) => panic!("program.statements[0] not Statement"),
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = "TRUE";
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+
+        check_parser_errors(&p);
+        if program.statements.len() != 1 {
+            panic!(
+                "program has not enough statements. got={}",
+                program.statements.len()
+            );
+        }
+
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                let expr_stmt = stmt
+                    .as_any()
+                    .downcast_ref::<ExpressionStatement>()
+                    .expect("stmt not ExpressionStatement");
+
+                let expr = &*expr_stmt.expression;
+                if let NodeType::Expression(e) = expr {
+                    let ident = e
+                        .as_any()
+                        .downcast_ref::<Boolean>()
+                        .expect("not Identifier");
+                    assert_eq!(ident.value, true);
+                    assert_eq!(ident.token_literal(), "TRUE");
                 }
             }
             NodeType::Expression(_) => panic!("program.statements[0] not Statement"),
@@ -591,60 +627,84 @@ return 10;
     // 中缀表达式
     #[test]
     fn test_parsing_infix_expressions() {
+        #[derive(Debug)]
+        enum TestValue {
+            Int(i64),
+            Boolean(bool),
+        }
         struct InfixTest {
             input: String,
-            left_value: i64,
+            left_value: TestValue,
             operator: String,
-            right_value: i64,
+            right_value: TestValue,
         }
         let infix_tests = vec![
             InfixTest {
                 input: "5 + 5 ;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "+".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 - 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "-".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 * 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "*".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 / 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "/".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 > 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: ">".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 < 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "<".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 == 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "==".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
             },
             InfixTest {
                 input: "5 != 5;".to_string(),
-                left_value: 5,
+                left_value: TestValue::Int(5),
                 operator: "!=".to_string(),
-                right_value: 5,
+                right_value: TestValue::Int(5),
+            },
+            // 布尔测试用例
+            InfixTest {
+                input: "true == true".to_string(),
+                left_value: TestValue::Boolean(true),
+                operator: "==".to_string(),
+                right_value: TestValue::Boolean(true),
+            },
+            InfixTest {
+                input: "true != false".to_string(),
+                left_value: TestValue::Boolean(true),
+                operator: "!=".to_string(),
+                right_value: TestValue::Boolean(false),
+            },
+            InfixTest {
+                input: "false == false".to_string(),
+                left_value: TestValue::Boolean(false),
+                operator: "==".to_string(),
+                right_value: TestValue::Boolean(false),
             },
         ];
 
@@ -661,24 +721,71 @@ return 10;
                 );
             }
 
+            // match &program.statements[0] {
+            //     // NodeType::Statement(stmt) => {
+            //     //     let expr_stmt = stmt
+            //     //         .as_any()
+            //     //         .downcast_ref::<ExpressionStatement>()
+            //     //         .expect("not expression stetement");
+            //     //     let expr = match &*expr_stmt.expression {
+            //     //         NodeType::Expression(expr) => expr
+            //     //             .as_any()
+            //     //             .downcast_ref::<InfixExpression>()
+            //     //             .expect("not InfixExpression"),
+            //     //         _ => panic!("not an Expression type"),
+            //     //     };
+            //     //     test_integer_literal(&expr.left, tt.left_value);
+            //     //     assert_eq!(expr.operator, tt.operator);
+            //     //     test_integer_literal(&expr.right, tt.right_value);
+            //     }
+            //     NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+
             match &program.statements[0] {
                 NodeType::Statement(stmt) => {
                     let expr_stmt = stmt
                         .as_any()
                         .downcast_ref::<ExpressionStatement>()
-                        .expect("not expression stetement");
+                        .expect("not expression statement");
 
-                    let expr = match &*expr_stmt.expression {
-                        NodeType::Expression(expr) => expr
-                            .as_any()
-                            .downcast_ref::<InfixExpression>()
-                            .expect("not InfixExpression"),
-                        _ => panic!("not an Expression type"),
-                    };
-                    test_integer_literal(&expr.left, tt.left_value);
-                    assert_eq!(expr.operator, tt.operator);
-
-                    test_integer_literal(&expr.right, tt.right_value);
+                    // 使用您已经实现的test_infix_expression函数
+                    match &tt.left_value {
+                        TestValue::Int(left_int) => match &tt.right_value {
+                            TestValue::Int(right_int) => {
+                                test_infix_expression(
+                                    &expr_stmt.expression,
+                                    ExpectedValue::Integer(*left_int),
+                                    &tt.operator,
+                                    ExpectedValue::Integer(*right_int),
+                                );
+                            }
+                            TestValue::Boolean(right_bool) => {
+                                test_infix_expression(
+                                    &expr_stmt.expression,
+                                    ExpectedValue::Integer(*left_int),
+                                    &tt.operator,
+                                    ExpectedValue::Boolean(*right_bool),
+                                );
+                            }
+                        },
+                        TestValue::Boolean(left_bool) => match &tt.right_value {
+                            TestValue::Int(right_int) => {
+                                test_infix_expression(
+                                    &expr_stmt.expression,
+                                    ExpectedValue::Boolean(*left_bool),
+                                    &tt.operator,
+                                    ExpectedValue::Integer(*right_int),
+                                );
+                            }
+                            TestValue::Boolean(right_bool) => {
+                                test_infix_expression(
+                                    &expr_stmt.expression,
+                                    ExpectedValue::Boolean(*left_bool),
+                                    &tt.operator,
+                                    ExpectedValue::Boolean(*right_bool),
+                                );
+                            }
+                        },
+                    }
                 }
                 NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
             }
@@ -741,6 +848,23 @@ return 10;
                 input: "3 + 4 * 5 == 3 * 1 + 4 * 5".to_string(),
                 expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))".to_string(),
             },
+            // boolean test
+            OperatorPrecedenceTest {
+                input: "true".to_string(),
+                expected: "true".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "false".to_string(),
+                expected: "false".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "3 > 5 == false".to_string(),
+                expected: "((3 > 5) == false)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "3 < 5 == true".to_string(),
+                expected: "((3 < 5) == true)".to_string(),
+            },
         ];
 
         for tt in tests {
@@ -791,11 +915,44 @@ return 10;
     enum ExpectedValue<'a> {
         Integer(i64),
         String(&'a str),
+        Boolean(bool),
     }
     fn test_literal_expression(exp: &NodeType, expected: ExpectedValue) -> bool {
         match expected {
             ExpectedValue::Integer(value) => test_integer_literal(exp, value),
             ExpectedValue::String(value) => test_identifier(exp, value),
+            ExpectedValue::Boolean(value) => test_boolean_literal(exp, value),
+        }
+    }
+
+    fn test_boolean_literal(exp: &NodeType, value: bool) -> bool {
+        if let NodeType::Expression(expr) = exp {
+            let bo = match expr.as_any().downcast_ref::<Boolean>() {
+                Some(bo) => bo,
+                None => {
+                    eprintln!("exp is not Boolean.got {:?}", expr);
+                    return false;
+                }
+            };
+
+            if bo.value != value {
+                eprintln!("bo.value not {},got {}", value, bo.value);
+                return false;
+            }
+
+            let expected_literal = if value { "true" } else { "false" };
+            if bo.token_literal() != expected_literal {
+                eprintln!(
+                    "bo.token_literal not {}. got={}",
+                    expected_literal,
+                    bo.token_literal()
+                );
+                return false;
+            }
+            return true;
+        } else {
+            eprintln!("node is not Expression");
+            return false;
         }
     }
 

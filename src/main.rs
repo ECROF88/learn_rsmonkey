@@ -1,4 +1,4 @@
-use monkey::repl::{self, repl::start};
+use monkey::repl::repl::start;
 
 fn main() {
     println!("Hello, world!");

@@ -1,6 +1,6 @@
-use crate::ast::ast::{
-    ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
-    PrefixExpression, Program, ReturnStatement,
+use crate::ast::{
+    Boolean, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement,
+    NodeType, PrefixExpression, Program, ReturnStatement,
 };
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
@@ -58,7 +58,8 @@ impl Parser {
         p.register_prefix(TokenType::INT, Parser::parse_integer_literal);
         p.register_prefix(TokenType::BANG, Parser::parse_prefix_expression); // 对应 !
         p.register_prefix(TokenType::MINUS, Parser::parse_prefix_expression); // 对应 -
-
+        p.register_prefix(TokenType::TRUE, Parser::parse_boolean);
+        p.register_prefix(TokenType::FALSE, Parser::parse_boolean);
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, Parser::parse_infix_expression);
         p.register_infix(TokenType::MINUS, Parser::parse_infix_expression);
@@ -315,6 +316,14 @@ impl Parser {
             left: Box::new(left),
             operator,
             right: Box::new(right),
+        })))
+    }
+
+    fn parse_boolean(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+        Some(NodeType::Expression(Box::new(Boolean {
+            token,
+            value: self.cur_token_is(TokenType::TRUE),
         })))
     }
 }
