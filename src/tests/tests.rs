@@ -886,6 +886,27 @@ return 10;
                 input: "3 < 5 == true".to_string(),
                 expected: "((3 < 5) == true)".to_string(),
             },
+            // 添加带括号的表达式
+            OperatorPrecedenceTest {
+                input: "1 + (2 + 3) + 4".to_string(),
+                expected: "((1 + (2 + 3)) + 4)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "(5 + 5) * 2".to_string(),
+                expected: "((5 + 5) * 2)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "2 / (5 + 5)".to_string(),
+                expected: "(2 / (5 + 5))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "-(5 + 5)".to_string(),
+                expected: "(-(5 + 5))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "!(true == true)".to_string(),
+                expected: "(!(true == true))".to_string(),
+            },
         ];
 
         for tt in tests {

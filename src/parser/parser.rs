@@ -60,6 +60,7 @@ impl Parser {
         p.register_prefix(TokenType::MINUS, Parser::parse_prefix_expression); // 对应 -
         p.register_prefix(TokenType::TRUE, Parser::parse_boolean);
         p.register_prefix(TokenType::FALSE, Parser::parse_boolean);
+        p.register_prefix(TokenType::LPAREN, Parser::parse_grouped_expression);
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, Parser::parse_infix_expression);
         p.register_infix(TokenType::MINUS, Parser::parse_infix_expression);
@@ -325,5 +326,15 @@ impl Parser {
             token,
             value: self.cur_token_is(TokenType::TRUE),
         })))
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<NodeType> {
+        self.next_token();
+        let exp = self.parse_expression(Precedence::LOWEST);
+        if !self.expect_peek(TokenType::RPAREN) {
+            return None;
+        }
+
+        exp
     }
 }
