@@ -205,7 +205,6 @@ impl Parser {
         self.errors.push(msg);
     }
 
-    // 需要添加表达式解析的方法
     fn parse_expression(&mut self, precedence: Precedence) -> Option<NodeType> {
         // 查找当前token对应的前缀解析函数
         if let Some(&prefix) = self.prefix_parse_fns.get(&self.cur_token.token_type) {
@@ -222,19 +221,6 @@ impl Parser {
 
             Some(left_exp)
         } else {
-            // println!("simple imple");
-            // // 暂时保持现有的简单实现
-            // match self.cur_token.token_type {
-            //     TokenType::IDENT => Some(NodeType::Expression(Box::new(Identifier {
-            //         token: self.cur_token.clone(),
-            //         value: self.cur_token.literal.clone(),
-            //     }))),
-            //     TokenType::INT => Some(NodeType::Expression(Box::new(Identifier {
-            //         token: self.cur_token.clone(),
-            //         value: self.cur_token.literal.clone(),
-            //     }))),
-            //     _ => None,
-            // }
             self.no_prefix_parse_fn_error(self.cur_token.token_type);
             None
         }
@@ -279,7 +265,7 @@ impl Parser {
                 expression: Box::new(expression),
             };
 
-            Some(NodeType::Statement(Box::new(stmt))) // why is Statement？
+            Some(NodeType::Statement(Box::new(stmt)))
         } else {
             None
         }
