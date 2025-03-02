@@ -404,10 +404,10 @@ return 10;
 
         let expected = "let x = y;\nreturn result;\nx";
         assert_eq!(
-            program.string(),
+            program.to_string(),
             expected,
             "Program to_string wrong. got={}",
-            program.string()
+            program.to_string()
         );
     }
 
@@ -592,7 +592,7 @@ return 10;
         }
         let infix_tests = vec![
             InfixTest {
-                input: "5 + 5;".to_string(),
+                input: "5 + 5 ;".to_string(),
                 left_value: 5,
                 operator: "+".to_string(),
                 right_value: 5,
@@ -675,6 +675,79 @@ return 10;
                 }
                 NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
             }
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        struct OperatorPrecedenceTest {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            OperatorPrecedenceTest {
+                input: "-a * b".to_string(),
+                expected: "((-a) * b)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "!-a".to_string(),
+                expected: "(!(-a))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a + b + c".to_string(),
+                expected: "((a + b) + c)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a + b - c".to_string(),
+                expected: "((a + b) - c)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a * b * c".to_string(),
+                expected: "((a * b) * c)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a * b / c".to_string(),
+                expected: "((a * b) / c)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a + b / c".to_string(),
+                expected: "(a + (b / c))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a + b * c + d / e - f".to_string(),
+                expected: "(((a + (b * c)) + (d / e)) - f)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "3 + 4; -5 * 5".to_string(),
+                expected: "(3 + 4)((-5) * 5)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "5 > 4 == 3 < 4".to_string(),
+                expected: "((5 > 4) == (3 < 4))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "5 < 4 != 3 > 4".to_string(),
+                expected: "((5 < 4) != (3 > 4))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "3 + 4 * 5 == 3 * 1 + 4 * 5".to_string(),
+                expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))".to_string(),
+            },
+        ];
+
+        for tt in tests {
+            let l = Lexer::new(tt.input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            let actual = program.to_string();
+            assert_eq!(
+                actual, tt.expected,
+                "expected={}, got={}",
+                tt.expected, actual
+            );
         }
     }
 }

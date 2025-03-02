@@ -58,21 +58,12 @@ impl Program {
             statements: Vec::new(),
         }
     }
-    pub fn string(&self) -> String {
-        let mut out = String::new();
-
-        for stmt in &self.statements {
-            out.push_str(&stmt.to_string());
-            if !out.ends_with('\n') {
-                out.push('\n');
-            }
-        }
-        // 删除最后一个换行符
-        if out.ends_with('\n') {
-            out.pop();
-        }
-        out
-    }
+    // pub fn string(&self) -> String {
+    //     self.statements
+    //         .iter()
+    //         .map(|stmt| stmt.to_string())
+    //         .collect()
+    // }
 }
 
 impl Node for Program {
@@ -85,6 +76,9 @@ impl Node for Program {
     }
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn to_string(&self) -> String {
+        self.statements.iter().map(|i| i.to_string()).collect()
     }
 }
 
