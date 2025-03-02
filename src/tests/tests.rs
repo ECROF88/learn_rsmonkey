@@ -533,22 +533,38 @@ return 10;
 
     #[test]
     fn test_parsing_prefix_expressions() {
+        #[derive(Debug)]
+        enum TestValue {
+            Int(i64),
+            Boolean(bool),
+        }
         struct PrefixTest {
             input: &'static str,
             operator: &'static str,
-            integer_value: i64,
+            // integer_value: i64,
+            value: TestValue,
         }
 
         let prefix_tests = vec![
             PrefixTest {
                 input: "!5;",
                 operator: "!",
-                integer_value: 5,
+                value: TestValue::Int(5),
             },
             PrefixTest {
                 input: "-15;",
                 operator: "-",
-                integer_value: 15,
+                value: TestValue::Int(15),
+            },
+            PrefixTest {
+                input: "!true",
+                operator: "!",
+                value: TestValue::Boolean(true),
+            },
+            PrefixTest {
+                input: "!false",
+                operator: "!",
+                value: TestValue::Boolean(false),
             },
         ];
 
@@ -587,7 +603,11 @@ return 10;
                         tt.operator, prefix_expr.operator
                     );
 
-                    test_integer_literal(&prefix_expr.right, tt.integer_value);
+                    // test_integer_literal(&prefix_expr.right, tt.integer_value);
+                    match tt.value {
+                        TestValue::Boolean(bo) => test_boolean_literal(&expr_stmt.expression, bo),
+                        TestValue::Int(value) => test_integer_literal(&expr_stmt.expression, value),
+                    };
                 }
                 NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
             }
@@ -747,7 +767,6 @@ return 10;
                         .downcast_ref::<ExpressionStatement>()
                         .expect("not expression statement");
 
-                    // 使用您已经实现的test_infix_expression函数
                     match &tt.left_value {
                         TestValue::Int(left_int) => match &tt.right_value {
                             TestValue::Int(right_int) => {
@@ -758,24 +777,25 @@ return 10;
                                     ExpectedValue::Integer(*right_int),
                                 );
                             }
-                            TestValue::Boolean(right_bool) => {
-                                test_infix_expression(
-                                    &expr_stmt.expression,
-                                    ExpectedValue::Integer(*left_int),
-                                    &tt.operator,
-                                    ExpectedValue::Boolean(*right_bool),
-                                );
-                            }
+                            // TestValue::Boolean(right_bool) => {
+                            //     test_infix_expression(
+                            //         &expr_stmt.expression,
+                            //         ExpectedValue::Integer(*left_int),
+                            //         &tt.operator,
+                            //         ExpectedValue::Boolean(*right_bool),
+                            //     );
+                            // }
+                            TestValue::Boolean(_) => panic!("left is i64,but right is bool"),
                         },
                         TestValue::Boolean(left_bool) => match &tt.right_value {
-                            TestValue::Int(right_int) => {
-                                test_infix_expression(
-                                    &expr_stmt.expression,
-                                    ExpectedValue::Boolean(*left_bool),
-                                    &tt.operator,
-                                    ExpectedValue::Integer(*right_int),
-                                );
-                            }
+                            // TestValue::Int(right_int) => {
+                            //     test_infix_expression(
+                            //         &expr_stmt.expression,
+                            //         ExpectedValue::Boolean(*left_bool),
+                            //         &tt.operator,
+                            //         ExpectedValue::Integer(*right_int),
+                            //     );
+                            // }
                             TestValue::Boolean(right_bool) => {
                                 test_infix_expression(
                                     &expr_stmt.expression,
@@ -784,6 +804,7 @@ return 10;
                                     ExpectedValue::Boolean(*right_bool),
                                 );
                             }
+                            TestValue::Int(_) => panic!("left is bool,but right is i64"),
                         },
                     }
                 }
