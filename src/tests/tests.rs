@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        Boolean, Identifier, InfixExpression, IntegerLiteral, LetStatement, NodeType,
-        PrefixExpression, ReturnStatement,
+        Boolean, Expression, Identifier, IfExpression, InfixExpression, IntegerLiteral,
+        LetStatement, NodeType, PrefixExpression, ReturnStatement,
     };
     use crate::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
@@ -1035,5 +1035,69 @@ return 10;
         }
     }
 
-    // #[test]
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x>y){x}";
+
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.Statements does not contain 1 statements.got {}",
+                program.statements.len()
+            );
+        }
+
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
+                    let if_expr = &*expr_stmt
+                        .expression
+                        .as_any()
+                        .downcast_ref::<IfExpression>()
+                        .expect("stmt.Expression is not IfExpression");
+
+                    test_infix_expression(
+                        &if_expr.condition,
+                        ExpectedValue::String("x"),
+                        "<",
+                        ExpectedValue::String("y"),
+                    );
+
+                    if if_expr.consequence.statements.len() != 1 {
+                        panic!(
+                            "consequence is not 1 statements. got={}",
+                            if_expr.consequence.statements.len()
+                        );
+                    }
+
+                    match &if_expr.consequence.statements[0] {
+                        NodeType::Statement(stmt) => {
+                            if let Some(consequence) =
+                                stmt.as_any().downcast_ref::<ExpressionStatement>()
+                            {
+                                test_identifier(&consequence.expression, "x");
+                            } else {
+                                panic!("Consequence.Statements[0] is not ExpressionStatement");
+                            }
+                        }
+                        _ => panic!("Not a Statement type"),
+                    }
+
+                    // 这个测试用例没有 else 语句
+                    assert!(
+                        if_expr.alternative.is_none(),
+                        "if_expr.alternative was not None. got={:?}",
+                        if_expr.alternative
+                    );
+                } else {
+                    panic!("not ExpressionStatement");
+                }
+            }
+            NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+        }
+    }
 }
