@@ -382,3 +382,37 @@ impl Node for BlockStatement {
 impl Statement for BlockStatement {
     fn statement_node(&self) {}
 }
+#[derive(Debug)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    // pub parameters: Vec<Identifier>,
+    pub parameters: Vec<NodeType>,
+    pub body: Box<NodeType>, // BlockStatement
+}
+
+impl Node for FunctionLiteral {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+        let mut params = String::new();
+        for p in &self.parameters {
+            params.push_str(&p.to_string());
+        }
+
+        out.push_str(&self.token_literal());
+        out.push('(');
+        out.push_str(&params);
+        out.push_str(") ");
+        out.push_str(&self.body.to_string());
+
+        out
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.to_string()
+    }
+}
+impl Expression for FunctionLiteral {
+    fn expression_node(&self) {}
+}

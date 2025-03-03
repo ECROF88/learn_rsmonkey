@@ -1,7 +1,7 @@
 use crate::ast::{
-    BlockStatement, Boolean, ExpressionStatement, Identifier, IfExpression, InfixExpression,
-    IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression, Program, ReturnStatement,
-    Statement,
+    BlockStatement, Boolean, ExpressionStatement, FunctionLiteral, Identifier, IfExpression,
+    InfixExpression, IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression, Program,
+    ReturnStatement, Statement,
 };
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
@@ -63,6 +63,7 @@ impl Parser {
         p.register_prefix(TokenType::FALSE, Parser::parse_boolean);
         p.register_prefix(TokenType::LPAREN, Parser::parse_grouped_expression);
         p.register_prefix(TokenType::IF, Parser::parse_if_expression);
+        p.register_prefix(TokenType::FN, Parser::parse_function_literal);
 
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, Parser::parse_infix_expression);
@@ -348,9 +349,9 @@ impl Parser {
         if !self.expect_peek(TokenType::LPAREN) {
             return None;
         }
-
+        //当前是{
         self.next_token();
-
+        //现在是}
         let condition = self.parse_expression(Precedence::LOWEST)?;
 
         if !self.expect_peek(TokenType::RPAREN) {
@@ -369,15 +370,10 @@ impl Parser {
                 return None;
             }
         }
-        // let mut g = 1;
         let alternative = match self.parse_block_statement() {
             Some(s) => Some(Box::new(s)),
-            None => {
-                // g = 2;
-                None
-            }
+            None => None,
         };
-        // println!("{}", g);
         Some(NodeType::Expression(Box::new(IfExpression {
             token,
             condition: Box::new(condition),
@@ -404,5 +400,70 @@ impl Parser {
             token,
             statements,
         })))
+    }
+
+    //fn <(<参数1>, <参数2>, <参数3>, ...)> <块语句>
+    fn parse_function_literal(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::LPAREN) {
+            return None;
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(TokenType::LBRACE) {
+            return None;
+        }
+
+        let body = self.parse_block_statement()?;
+
+        Some(NodeType::Expression(Box::new(FunctionLiteral {
+            token,
+            body: Box::new(body),
+            parameters,
+        })))
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<NodeType>> {
+        let mut identifiers = Vec::<NodeType>::new();
+
+        if self.peek_token_is(TokenType::RPAREN) {
+            self.next_token();
+            return Some(identifiers);
+        }
+
+        self.next_token();
+        let ident = Some(NodeType::Expression(Box::new(Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        })));
+        if let Some(id) = ident {
+            identifiers.push(id);
+        } else {
+            return None;
+        }
+
+        // 处理逗号分隔的参数列表
+        while self.peek_token_is(TokenType::COMMA) {
+            self.next_token();
+            self.next_token();
+
+            let ident = Some(NodeType::Expression(Box::new(Identifier {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            })));
+
+            if let Some(id) = ident {
+                identifiers.push(id);
+            } else {
+                return None;
+            }
+        }
+
+        if !self.expect_peek(TokenType::RPAREN) {
+            return None;
+        }
+        Some(identifiers)
     }
 }

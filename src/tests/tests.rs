@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        BlockStatement, Boolean, Expression, Identifier, IfExpression, InfixExpression,
-        IntegerLiteral, LetStatement, NodeType, PrefixExpression, ReturnStatement,
+        BlockStatement, Boolean, Expression, FunctionLiteral, Identifier, IfExpression,
+        InfixExpression, IntegerLiteral, LetStatement, NodeType, PrefixExpression, ReturnStatement,
     };
     use crate::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
@@ -1208,6 +1208,151 @@ return 10;
                 }
             }
             NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+        }
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x,y){x+y;}";
+
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.Statements does not contain 1 statements.got {}",
+                program.statements.len()
+            )
+        }
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                let expr_stmt = stmt
+                    .as_any()
+                    .downcast_ref::<ExpressionStatement>()
+                    .expect("not ExpressionStatement!");
+
+                let function = match &*expr_stmt.expression {
+                    NodeType::Expression(expr) => expr
+                        .as_any()
+                        .downcast_ref::<FunctionLiteral>()
+                        .expect("not function literal"),
+                    _ => panic!("expr_stmt.expression is not an Expression"),
+                };
+
+                if function.parameters.len() != 2 {
+                    panic!(
+                        "function literal params wrong.want 2,got {}",
+                        function.parameters.len()
+                    );
+                }
+
+                test_literal_expression(&function.parameters[0], ExpectedValue::String("x"));
+                test_literal_expression(&function.parameters[1], ExpectedValue::String("y"));
+
+                let body = match &*function.body {
+                    NodeType::Statement(stmt) => stmt
+                        .as_any()
+                        .downcast_ref::<BlockStatement>()
+                        .expect("function body stmt is not BlockStatement"),
+                    _ => {
+                        panic!("function.body is not a Statement type")
+                    }
+                };
+                if body.statements.len() != 1 {
+                    panic!(
+                        "function.Body.Statements has not 1 statements. got={}",
+                        body.statements.len()
+                    );
+                }
+
+                match &body.statements[0] {
+                    NodeType::Statement(body_stmt) => {
+                        let body_expr_stmt = body_stmt
+                            .as_any()
+                            .downcast_ref::<ExpressionStatement>()
+                            .expect("function body stmt is not ExpressionStatement");
+                        test_infix_expression(
+                            &body_expr_stmt.expression,
+                            ExpectedValue::String("x"),
+                            "+",
+                            ExpectedValue::String("y"),
+                        );
+                    }
+                    _ => panic!("function.Body.Statements[0] is not Statement"),
+                }
+            }
+
+            NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+        }
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        struct Test {
+            input: String,
+            expected_params: Vec<String>,
+        }
+        let tests = vec![
+            Test {
+                input: "fn() {};".to_string(),
+                expected_params: vec![],
+            },
+            Test {
+                input: "fn(x) {};".to_string(),
+                expected_params: vec!["x".to_string()],
+            },
+            Test {
+                input: "fn(x, y, z) {};".to_string(),
+                expected_params: vec!["x".to_string(), "y".to_string(), "z".to_string()],
+            },
+        ];
+
+        for tt in tests {
+            let l = Lexer::new(tt.input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements should contain 1 statement, got {}",
+                    program.statements.len()
+                );
+            }
+
+            match &program.statements[0] {
+                NodeType::Statement(stmt) => {
+                    let expr_stmt = stmt
+                        .as_any()
+                        .downcast_ref::<ExpressionStatement>()
+                        .expect("not ExpressionStatement!");
+
+                    let function = match &*expr_stmt.expression {
+                        NodeType::Expression(expr) => expr
+                            .as_any()
+                            .downcast_ref::<FunctionLiteral>()
+                            .expect("not function literal"),
+                        _ => panic!("not an Expression type"),
+                    };
+                    assert_eq!(
+                        function.parameters.len(),
+                        tt.expected_params.len(),
+                        "length parameters wrong. want {}, got={}",
+                        tt.expected_params.len(),
+                        function.parameters.len()
+                    );
+
+                    for (index, ident) in tt.expected_params.iter().enumerate() {
+                        test_literal_expression(
+                            &function.parameters[index],
+                            ExpectedValue::String(ident),
+                        );
+                    }
+                }
+                _ => panic!("program.statements[0] is not Statement"),
+            }
         }
     }
 }
