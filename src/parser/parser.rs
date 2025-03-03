@@ -1,7 +1,7 @@
 use crate::ast::{
-    BlockStatement, Boolean, ExpressionStatement, FunctionLiteral, Identifier, IfExpression,
-    InfixExpression, IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression, Program,
-    ReturnStatement, Statement,
+    BlockStatement, Boolean, CallExpression, ExpressionStatement, FunctionLiteral, Identifier,
+    IfExpression, InfixExpression, IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression,
+    Program, ReturnStatement, Statement,
 };
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
@@ -74,6 +74,7 @@ impl Parser {
         p.register_infix(TokenType::NOTEQ, Parser::parse_infix_expression);
         p.register_infix(TokenType::LT, Parser::parse_infix_expression);
         p.register_infix(TokenType::GT, Parser::parse_infix_expression);
+        p.register_infix(TokenType::LPAREN, Parser::parse_call_expression);
 
         p
     }
@@ -363,16 +364,16 @@ impl Parser {
         }
         let consequence = self.parse_block_statement()?;
 
-        if self.peek_token_is(TokenType::ELSE) {
-            self.next_token();
+        let alternative = if self.peek_token_is(TokenType::ELSE) {
+            self.next_token(); // 消费ELSE 
 
             if !self.expect_peek(TokenType::LBRACE) {
                 return None;
             }
-        }
-        let alternative = match self.parse_block_statement() {
-            Some(s) => Some(Box::new(s)),
-            None => None,
+
+            Some(Box::new(self.parse_block_statement()?))
+        } else {
+            None
         };
         Some(NodeType::Expression(Box::new(IfExpression {
             token,
@@ -465,5 +466,41 @@ impl Parser {
             return None;
         }
         Some(identifiers)
+    }
+
+    //<表达式>(<以逗号分隔的表达式列表>)
+    fn parse_call_expression(&mut self, function: NodeType) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+        let function = Box::new(function);
+        let arguments = self.parse_call_arguments()?;
+
+        Some(NodeType::Expression(Box::new(CallExpression {
+            token,
+            function,
+            arguments,
+        })))
+    }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<NodeType>> {
+        let mut args = Vec::<NodeType>::new();
+        if self.peek_token_is(TokenType::RPAREN) {
+            self.next_token();
+            return Some(args);
+        }
+
+        self.next_token();
+        args.push(self.parse_expression(Precedence::LOWEST)?);
+
+        while self.peek_token_is(TokenType::COMMA) {
+            self.next_token();
+            self.next_token();
+
+            args.push(self.parse_expression(Precedence::LOWEST)?);
+        }
+        if !self.expect_peek(TokenType::RPAREN) {
+            return None;
+        }
+
+        Some(args)
     }
 }

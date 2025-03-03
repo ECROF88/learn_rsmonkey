@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        BlockStatement, Boolean, Expression, FunctionLiteral, Identifier, IfExpression,
-        InfixExpression, IntegerLiteral, LetStatement, NodeType, PrefixExpression, ReturnStatement,
+        BlockStatement, Boolean, CallExpression, Expression, FunctionLiteral, Identifier,
+        IfExpression, InfixExpression, IntegerLiteral, LetStatement, NodeType, PrefixExpression,
+        ReturnStatement,
     };
     use crate::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
@@ -470,7 +471,7 @@ return 10;
                 if let NodeType::Expression(e) = expr {
                     let ident = e.as_any().downcast_ref::<Boolean>().expect("not Boolean");
                     assert_eq!(ident.value, true);
-                    assert_eq!(ident.token_literal(), "TRUE");
+                    assert_eq!(ident.token_literal(), "true");
                 }
             }
             NodeType::Expression(_) => panic!("program.statements[0] not Statement"),
@@ -897,6 +898,14 @@ return 10;
             OperatorPrecedenceTest {
                 input: "!(true == true)".to_string(),
                 expected: "(!(true == true))".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "a + add(b * c) +d".to_string(),
+                expected: "((a + add((b * c))) + d)".to_string(),
+            },
+            OperatorPrecedenceTest {
+                input: "add(a + b + c * d / f + g)".to_string(),
+                expected: "add((((a + b) + ((c * d) / f)) + g))".to_string(),
             },
         ];
 
@@ -1353,6 +1362,64 @@ return 10;
                 }
                 _ => panic!("program.statements[0] is not Statement"),
             }
+        }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements should contain 1 statement, got {}",
+                program.statements.len()
+            );
+        }
+
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                let expr_stmt = stmt
+                    .as_any()
+                    .downcast_ref::<ExpressionStatement>()
+                    .expect("stmt is not expressionStatement");
+
+                let exp = match &*expr_stmt.expression {
+                    NodeType::Expression(expr) => expr
+                        .as_any()
+                        .downcast_ref::<CallExpression>()
+                        .expect(&format!(
+                            "not CallExpression. got {:?}",
+                            expr_stmt.expression
+                        )),
+                    _ => panic!("expr_stmt.expression is not an Expression"),
+                };
+
+                test_identifier(&exp.function, "add");
+
+                if exp.arguments.len() != 3 {
+                    panic!("wrong length of arguments. got {}", exp.arguments.len());
+                }
+
+                test_literal_expression(&exp.arguments[0], ExpectedValue::Integer(1));
+                test_infix_expression(
+                    &exp.arguments[1],
+                    ExpectedValue::Integer(2),
+                    "*",
+                    ExpectedValue::Integer(3),
+                );
+                test_infix_expression(
+                    &exp.arguments[2],
+                    ExpectedValue::Integer(4),
+                    "+",
+                    ExpectedValue::Integer(5),
+                );
+            }
+            _ => panic!("is not Statement"),
         }
     }
 }

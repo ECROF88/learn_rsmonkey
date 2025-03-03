@@ -396,14 +396,15 @@ impl Node for FunctionLiteral {
     }
     fn to_string(&self) -> String {
         let mut out = String::new();
-        let mut params = String::new();
-        for p in &self.parameters {
-            params.push_str(&p.to_string());
-        }
+        // let mut params = String::new();
+        // for p in &self.parameters {
+        //     params.push_str(&p.to_string());
+        // }
+        let params: Vec<String> = self.parameters.iter().map(|p| p.to_string()).collect();
 
         out.push_str(&self.token_literal());
         out.push('(');
-        out.push_str(&params);
+        out.push_str(&params.join(", "));
         out.push_str(") ");
         out.push_str(&self.body.to_string());
 
@@ -413,6 +414,39 @@ impl Node for FunctionLiteral {
         self.token.literal.to_string()
     }
 }
+
 impl Expression for FunctionLiteral {
+    fn expression_node(&self) {}
+}
+
+#[derive(Debug)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Box<NodeType>,
+    pub arguments: Vec<NodeType>,
+}
+
+impl Node for CallExpression {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        let args: Vec<String> = self.arguments.iter().map(|a| a.to_string()).collect();
+
+        out.push_str(&self.function.to_string());
+        out.push_str("(");
+        out.push_str(&args.join(", "));
+        out.push_str(")");
+
+        out
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.to_string()
+    }
+}
+
+impl Expression for CallExpression {
     fn expression_node(&self) {}
 }
