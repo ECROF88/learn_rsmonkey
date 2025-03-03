@@ -1,6 +1,7 @@
 use crate::ast::{
-    Boolean, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement,
-    NodeType, PrefixExpression, Program, ReturnStatement,
+    BlockStatement, Boolean, ExpressionStatement, Identifier, IfExpression, InfixExpression,
+    IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression, Program, ReturnStatement,
+    Statement,
 };
 use crate::lexer::lexer::Lexer;
 use crate::token::token::{Token, TokenType};
@@ -61,6 +62,8 @@ impl Parser {
         p.register_prefix(TokenType::TRUE, Parser::parse_boolean);
         p.register_prefix(TokenType::FALSE, Parser::parse_boolean);
         p.register_prefix(TokenType::LPAREN, Parser::parse_grouped_expression);
+        p.register_prefix(TokenType::IF, Parser::parse_if_expression);
+
         // 注册中缀解析函数
         p.register_infix(TokenType::PLUS, Parser::parse_infix_expression);
         p.register_infix(TokenType::MINUS, Parser::parse_infix_expression);
@@ -127,7 +130,7 @@ impl Parser {
         // 循环直到遇到 EOF token
         while !self.cur_token_is(TokenType::EOF) {
             if let Some(stmt) = self.parse_statement() {
-                println!("Parsed statement: {:?}", stmt);
+                println!("Parsed statement: {:#?}", stmt);
                 program.statements.push(stmt);
             }
             self.next_token();
@@ -337,5 +340,54 @@ impl Parser {
         }
 
         exp
+    }
+
+    fn parse_if_expression(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::LPAREN) {
+            return None;
+        }
+
+        self.next_token();
+
+        let condition = self.parse_expression(Precedence::LOWEST)?;
+
+        if !self.expect_peek(TokenType::RPAREN) {
+            return None;
+        }
+
+        if !self.expect_peek(TokenType::LBRACE) {
+            return None;
+        }
+        // 现在我们直接使用 parse_block_statement 而不是手动解析
+        let consequence = self.parse_block_statement()?;
+
+        Some(NodeType::Expression(Box::new(IfExpression {
+            token,
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative: None,
+        })))
+    }
+
+    fn parse_block_statement(&mut self) -> Option<NodeType> {
+        let token = self.cur_token.clone();
+        let mut statements = Vec::<NodeType>::new();
+        self.next_token();
+
+        while !self.cur_token_is(TokenType::RBRACE) && !self.cur_token_is(TokenType::EOF) {
+            if let Some(stmt) = self.parse_statement() {
+                statements.push(stmt);
+            } else {
+                return None; // 如果任何语句解析失败，则整个块解析失败
+            }
+            self.next_token();
+        }
+
+        Some(NodeType::Statement(Box::new(BlockStatement {
+            token,
+            statements,
+        })))
     }
 }

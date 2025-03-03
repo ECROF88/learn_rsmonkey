@@ -315,10 +315,10 @@ impl Expression for Boolean {
 // if 表达式
 #[derive(Debug)]
 pub struct IfExpression {
-    pub token: Token,                             // 'if'词法单元
-    pub condition: Box<NodeType>,                 // 条件表达式
-    pub consequence: Box<BlockStatement>,         // 如果条件为真时执行的语句块
-    pub alternative: Option<Box<BlockStatement>>, // 可选的else语句块
+    pub token: Token,                       // 'if'词法单元
+    pub condition: Box<NodeType>,           // 条件表达式
+    pub consequence: Box<NodeType>,         // 如果条件为真时执行的语句块
+    pub alternative: Option<Box<NodeType>>, // 可选的else语句块
 }
 
 impl Node for IfExpression {

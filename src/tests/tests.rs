@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        Boolean, Expression, Identifier, IfExpression, InfixExpression, IntegerLiteral,
-        LetStatement, NodeType, PrefixExpression, ReturnStatement,
+        BlockStatement, Boolean, Expression, Identifier, IfExpression, InfixExpression,
+        IntegerLiteral, LetStatement, NodeType, PrefixExpression, ReturnStatement,
     };
     use crate::ast::{ExpressionStatement, Node};
     use crate::lexer::lexer::Lexer;
@@ -1054,27 +1054,36 @@ return 10;
         match &program.statements[0] {
             NodeType::Statement(stmt) => {
                 if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
-                    let if_expr = &*expr_stmt
-                        .expression
-                        .as_any()
-                        .downcast_ref::<IfExpression>()
-                        .expect("stmt.Expression is not IfExpression");
+                    let node = &*expr_stmt.expression;
+                    let if_expr = match node {
+                        NodeType::Expression(expr) => expr
+                            .as_any()
+                            .downcast_ref::<IfExpression>()
+                            .expect("not IfExpressino"),
+                        NodeType::Statement(_) => panic!("not ExpressionStatement"),
+                    };
 
                     test_infix_expression(
                         &if_expr.condition,
                         ExpectedValue::String("x"),
-                        "<",
+                        ">",
                         ExpectedValue::String("y"),
                     );
-
-                    if if_expr.consequence.statements.len() != 1 {
+                    let block_stmt = match &*if_expr.consequence {
+                        NodeType::Statement(stmt) => stmt
+                            .as_any()
+                            .downcast_ref::<BlockStatement>()
+                            .expect("not BlockStatement"),
+                        _ => panic!("if_expr.consequence is not a Statement"),
+                    };
+                    if block_stmt.statements.len() != 1 {
                         panic!(
                             "consequence is not 1 statements. got={}",
-                            if_expr.consequence.statements.len()
+                            block_stmt.statements.len()
                         );
                     }
 
-                    match &if_expr.consequence.statements[0] {
+                    match &block_stmt.statements[0] {
                         NodeType::Statement(stmt) => {
                             if let Some(consequence) =
                                 stmt.as_any().downcast_ref::<ExpressionStatement>()
