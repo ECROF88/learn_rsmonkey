@@ -360,14 +360,29 @@ impl Parser {
         if !self.expect_peek(TokenType::LBRACE) {
             return None;
         }
-        // 现在我们直接使用 parse_block_statement 而不是手动解析
         let consequence = self.parse_block_statement()?;
 
+        if self.peek_token_is(TokenType::ELSE) {
+            self.next_token();
+
+            if !self.expect_peek(TokenType::LBRACE) {
+                return None;
+            }
+        }
+        // let mut g = 1;
+        let alternative = match self.parse_block_statement() {
+            Some(s) => Some(Box::new(s)),
+            None => {
+                // g = 2;
+                None
+            }
+        };
+        // println!("{}", g);
         Some(NodeType::Expression(Box::new(IfExpression {
             token,
             condition: Box::new(condition),
             consequence: Box::new(consequence),
-            alternative: None,
+            alternative,
         })))
     }
 

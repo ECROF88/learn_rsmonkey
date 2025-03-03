@@ -1109,4 +1109,105 @@ return 10;
             NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
         }
     }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x>y) {x}else{y}";
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        if program.statements.len() != 1 {
+            panic!(
+                "program.Statements does not contain 1 statements.got {}",
+                program.statements.len()
+            );
+        }
+
+        match &program.statements[0] {
+            NodeType::Statement(stmt) => {
+                if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
+                    let node = &*expr_stmt.expression;
+                    let if_expr = match node {
+                        NodeType::Expression(expr) => expr
+                            .as_any()
+                            .downcast_ref::<IfExpression>()
+                            .expect("not IfExpressino"),
+                        NodeType::Statement(_) => panic!("not ExpressionStatement"),
+                    };
+
+                    test_infix_expression(
+                        &if_expr.condition,
+                        ExpectedValue::String("x"),
+                        ">",
+                        ExpectedValue::String("y"),
+                    );
+                    let block_stmt = match &*if_expr.consequence {
+                        NodeType::Statement(stmt) => stmt
+                            .as_any()
+                            .downcast_ref::<BlockStatement>()
+                            .expect("not BlockStatement"),
+                        _ => panic!("if_expr.consequence is not a Statement"),
+                    };
+                    if block_stmt.statements.len() != 1 {
+                        panic!(
+                            "consequence is not 1 statements. got={}",
+                            block_stmt.statements.len()
+                        );
+                    }
+
+                    match &block_stmt.statements[0] {
+                        NodeType::Statement(stmt) => {
+                            if let Some(consequence) =
+                                stmt.as_any().downcast_ref::<ExpressionStatement>()
+                            {
+                                test_identifier(&consequence.expression, "x");
+                            } else {
+                                panic!("Consequence.Statements[0] is not ExpressionStatement");
+                            }
+                        }
+                        _ => panic!("Not a Statement type"),
+                    }
+
+                    if let Some(alt) = &if_expr.alternative {
+                        // let a = alt;
+                        let block_stmt = match &**alt {
+                            NodeType::Statement(stmt) => stmt
+                                .as_any()
+                                .downcast_ref::<BlockStatement>()
+                                .expect("not BlockStatement"),
+                            _ => panic!("if_expr.alternative is not a Statement"),
+                        };
+
+                        // 检查 else 块中的语句
+                        if block_stmt.statements.len() != 1 {
+                            panic!(
+                                "alternative is not 1 statements. got={}",
+                                block_stmt.statements.len()
+                            );
+                        }
+
+                        // 检查 else 块中的表达式
+                        match &block_stmt.statements[0] {
+                            NodeType::Statement(stmt) => {
+                                if let Some(alternative) =
+                                    stmt.as_any().downcast_ref::<ExpressionStatement>()
+                                {
+                                    test_identifier(&alternative.expression, "y");
+                                } else {
+                                    panic!("Alternative.Statements[0] is not ExpressionStatement");
+                                }
+                            }
+                            _ => panic!("Not a Statement type"),
+                        }
+                    } else {
+                        panic!("if_expr.alternative was None");
+                    }
+                } else {
+                    panic!("not ExpressionStatement");
+                }
+            }
+            NodeType::Expression(_) => panic!("program.statements[0] is not Statement"),
+        }
+    }
 }
