@@ -166,40 +166,60 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let _error_input = "
-let x 5;
-let = 10;
-let 838 383;
-        ";
-        let input = "
-            let x =12;
-            let y=5;
-            let Foo_Bar =100;
-        ";
-
-        let l = Lexer::new(input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        if program.statements.is_empty() {
-            panic!("is empty");
+        struct Test {
+            input: String,
+            expected_identifier: String,
+            expected_value: ExpectedValue<'static>,
         }
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements. got={}",
-                program.statements.len()
-            );
-        }
+        let tests = vec![
+            Test {
+                input: "let x = 5;".to_string(),
+                expected_identifier: "x".to_string(),
+                expected_value: ExpectedValue::Integer(5),
+            },
+            Test {
+                input: "let y = true;".to_string(),
+                expected_identifier: "y".to_string(),
+                expected_value: ExpectedValue::Boolean(true),
+            },
+            Test {
+                input: "let foobar = y;".to_string(),
+                expected_identifier: "foobar".to_string(),
+                expected_value: ExpectedValue::String("y"),
+            },
+        ];
 
-        let tests = ["x", "y", "Foo_Bar"];
-        // println!("\n=== Program Statements ===");
-        // println!("{:#?}", program.statements);
-        // println!("========================\n");
-        for (i, expected_identifier) in tests.iter().enumerate() {
-            let stmt: &NodeType = &program.statements[i];
-            if !test_let_statement(stmt, expected_identifier) {
+        for tt in tests {
+            let l = Lexer::new(tt.input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements. got={}",
+                    program.statements.len()
+                );
+            }
+
+            let stmt = &program.statements[0];
+            if !test_let_statement(stmt, &tt.expected_identifier) {
                 return;
+            }
+
+            match stmt {
+                NodeType::Statement(statement) => {
+                    let let_stmt = statement
+                        .as_any()
+                        .downcast_ref::<LetStatement>()
+                        .expect("statement not LetStatement");
+
+                    if !test_literal_expression(&let_stmt.value, tt.expected_value) {
+                        panic!("Value test failed");
+                    }
+                }
+                NodeType::Expression(_) => panic!("stmt is not Statement"),
             }
         }
     }
@@ -264,45 +284,80 @@ let 838 383;
 
     #[test]
     fn test_return_statements() {
-        let input = "
-return 5; 
-return 10; 
-";
-
-        let l = Lexer::new(input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program();
-
-        check_parser_errors(&p);
-
-        if program.statements.len() != 2 {
-            panic!(
-                "program.statements does not contain 3 statements. got {} ",
-                program.statements.len()
-            );
+        struct Test {
+            input: String,
+            expected_value: ExpectedValue<'static>,
         }
+        let tests = vec![
+            Test {
+                input: "return 5;".to_string(),
+                expected_value: ExpectedValue::Integer(5),
+            },
+            Test {
+                input: "return true;".to_string(),
+                expected_value: ExpectedValue::Boolean(true),
+            },
+            Test {
+                input: "return y;".to_string(),
+                expected_value: ExpectedValue::String("y"),
+            },
+        ];
+        for tt in tests {
+            let l = Lexer::new(tt.input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
 
-        for stmt in &program.statements {
-            match stmt {
-                NodeType::Statement(statement) => {
-                    let return_stmt = match statement.as_any().downcast_ref::<ReturnStatement>() {
-                        Some(rs) => rs,
-                        None => {
-                            panic!("statement not ReturnStatement. got={:?}", statement);
-                        }
-                    };
+            check_parser_errors(&p);
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 3 statements. got {} ",
+                    program.statements.len()
+                );
+            }
+
+            match &program.statements[0] {
+                NodeType::Statement(stmt) => {
+                    let return_stmt = stmt
+                        .as_any()
+                        .downcast_ref::<ReturnStatement>()
+                        .expect("not RetrunStatement!");
+
                     assert_eq!(
                         return_stmt.token_literal(),
                         "return",
-                        "returnStmt.token_literal not 'return',got {}",
+                        "returnStmt.token_literal not 'return', got {}",
                         return_stmt.token_literal()
                     );
+                    if !test_literal_expression(&return_stmt.return_value, tt.expected_value) {
+                        panic!("return_stmt.return_value not matching expected value");
+                    }
                 }
-                NodeType::Expression(_) => {
-                    panic!("stmt not Statement. got Expression");
-                }
+                _ => panic!("stmt not Statement. got Expression"),
             }
         }
+
+        // for stmt in &program.statements {
+        //     match stmt {
+        //         NodeType::Statement(statement) => {
+        //             let return_stmt = match statement.as_any().downcast_ref::<ReturnStatement>() {
+        //                 Some(rs) => rs,
+        //                 None => {
+        //                     panic!("statement not ReturnStatement. got={:?}", statement);
+        //                 }
+        //             };
+        //             assert_eq!(
+        //                 return_stmt.token_literal(),
+        //                 "return",
+        //                 "returnStmt.token_literal not 'return',got {}",
+        //                 return_stmt.token_literal()
+        //             );
+        //         }
+        //         NodeType::Expression(_) => {
+        //             panic!("stmt not Statement. got Expression");
+        //         }
+        //     }
+        // }
     }
 
     #[test]
