@@ -29,6 +29,66 @@ pub enum NodeType {
     Expression(Box<dyn Expression>),
 }
 
+impl NodeType {
+    pub fn clone_node(&self) -> Self {
+        match self {
+            NodeType::Statement(stmt) => {
+                if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
+                    NodeType::Statement(Box::new(ExpressionStatement {
+                        token: expr_stmt.token.clone(),
+                        expression: Box::new(expr_stmt.expression.clone_node()),
+                    }))
+                } else if let Some(let_stmt) = stmt.as_any().downcast_ref::<LetStatement>() {
+                    NodeType::Statement(Box::new(LetStatement {
+                        token: let_stmt.token.clone(),
+                        name: let_stmt.name.clone(),
+                        value: Box::new(let_stmt.value.clone_node()),
+                    }))
+                } else if let Some(ret_stmt) = stmt.as_any().downcast_ref::<ReturnStatement>() {
+                    NodeType::Statement(Box::new(ReturnStatement {
+                        token: ret_stmt.token.clone(),
+                        return_value: Box::new(ret_stmt.return_value.clone_node()),
+                    }))
+                } else if let Some(block_stmt) = stmt.as_any().downcast_ref::<BlockStatement>() {
+                    let cloned_statements = block_stmt
+                        .statements
+                        .iter()
+                        .map(|s| s.clone_node())
+                        .collect();
+                    NodeType::Statement(Box::new(BlockStatement {
+                        token: block_stmt.token.clone(),
+                        statements: cloned_statements,
+                    }))
+                } else {
+                    panic!("Unknown statement type in clone_node")
+                }
+            }
+            NodeType::Expression(expr) => {
+                if let Some(int_lit) = expr.as_any().downcast_ref::<IntegerLiteral>() {
+                    NodeType::Expression(Box::new(IntegerLiteral {
+                        token: int_lit.token.clone(),
+                        value: int_lit.value,
+                    }))
+                } else if let Some(bool_expr) = expr.as_any().downcast_ref::<Boolean>() {
+                    NodeType::Expression(Box::new(Boolean {
+                        token: bool_expr.token.clone(),
+                        value: bool_expr.value,
+                    }))
+                } else if let Some(ident) = expr.as_any().downcast_ref::<Identifier>() {
+                    NodeType::Expression(Box::new(Identifier {
+                        token: ident.token.clone(),
+                        value: ident.value.clone(),
+                    }))
+                }
+                // 为其他表达式类型添加类似的匹配分支
+                else {
+                    panic!("Unknown expression type in clone_node")
+                }
+            }
+        }
+    }
+}
+
 impl Node for NodeType {
     fn token_literal(&self) -> String {
         match self {
@@ -64,6 +124,11 @@ impl Program {
     //         .map(|stmt| stmt.to_string())
     //         .collect()
     // }
+}
+impl AsRef<dyn Node> for Program {
+    fn as_ref(&self) -> &(dyn Node + 'static) {
+        self as &dyn Node
+    }
 }
 
 impl Node for Program {

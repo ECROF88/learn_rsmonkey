@@ -1,6 +1,12 @@
 use std::io::{self, Write};
 
-use crate::{ast::Node, lexer::lexer::Lexer, parser::parser::Parser, token::token::TokenType};
+use crate::{
+    ast::Node,
+    evaluator::{self, evaluator::eval},
+    lexer::lexer::Lexer,
+    parser::parser::Parser,
+    token::token::TokenType,
+};
 
 const PROMPT: &str = ">> ";
 const MONKEY_FACE: &str = r#"            __,__
@@ -33,12 +39,23 @@ pub fn start() {
                     print_parser_errors(&p.errors());
                     continue;
                 }
-                println!("{:?}", program.to_string());
+
+                // 评估程序
+                let evaluated = eval(program.as_ref());
+
+                // 打印评估结果
+                if evaluated.type_obj() != "NULL" {
+                    // 假设NULL_OBJ是"NULL"
+                    println!("{}", evaluated.inspect());
+                }
+
+                // println!("{:?}", program.to_string());
             }
             _ => break,
         }
     }
 }
+
 fn print_parser_errors(errors: &[String]) {
     eprintln!("{}", MONKEY_FACE);
     eprintln!("parsing ERROR!");

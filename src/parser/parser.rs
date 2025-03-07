@@ -132,7 +132,8 @@ impl Parser {
         // 循环直到遇到 EOF token
         while !self.cur_token_is(TokenType::EOF) {
             if let Some(stmt) = self.parse_statement() {
-                println!("Parsed statement: {:#?}", stmt);
+                // 打印Statement
+                // println!("Parsed statement: {:#?}", stmt);
                 program.statements.push(stmt);
             }
             self.next_token();
