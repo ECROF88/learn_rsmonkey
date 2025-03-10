@@ -1,7 +1,4 @@
-use super::{
-    Object,
-    object::{BOOLEAN_OBJ, NULL_OBJ},
-};
+use super::{Object, object::NULL_OBJ};
 
 #[derive(Debug, Clone)]
 pub struct Null {}

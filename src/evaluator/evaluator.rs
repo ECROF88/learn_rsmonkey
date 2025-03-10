@@ -1,5 +1,6 @@
 use crate::ast::{
-    BlockStatement, Boolean, ExpressionStatement, IntegerLiteral, Node, NodeType, Program,
+    BlockStatement, Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, NodeType,
+    PrefixExpression, Program,
 };
 use crate::object::integer::Integer;
 use crate::object::null::Null;
@@ -123,12 +124,24 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                     println!("Boolean!!!!!!!!!!!!!!!!!!!");
                     return native_bool_to_boolean_object(bool_expr.value);
                 }
+                if let Some(prefix_epxr) = expr.as_any().downcast_ref::<PrefixExpression>() {
+                    println!("Prefix!!!!!!!!!!!!!!!!!!!!");
+                    let right = eval(prefix_epxr.right.as_ref());
+                    return eval_prefix_expression(&prefix_epxr.operator, right);
+                }
+                if let Some(infix_expr) = expr.as_any().downcast_ref::<InfixExpression>() {
+                    println!("Infix!!!!!!!!!!!!!!!!!!!!");
+                    let left = eval(infix_expr.left.as_ref());
+                    let right = eval(infix_expr.right.as_ref());
+                    return eval_infix_expression(&infix_expr.operator, left, right);
+                }
             }
         }
     }
 
     // 如果没有匹配的类型，返回Null
     // Box::new(Null {})
+    println!("GET NULL");
     get_null_object()
 }
 
@@ -141,4 +154,77 @@ fn eval_statements(statements: &[NodeType]) -> Box<dyn Object> {
     }
 
     result
+}
+fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Object> {
+    match operator {
+        "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_prefix_operator_expression(right),
+        _ => get_null_object(),
+    }
+}
+
+fn eval_bang_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
+    // 处理!运算符的逻辑
+    match right.type_obj().as_str() {
+        "BOOLEAN" => {
+            if let Some(bool_obj) = right.as_any().downcast_ref::<object::Boolean>() {
+                return native_bool_to_boolean_object(!bool_obj.value);
+            }
+            get_null_object()
+        }
+        "NULL" => native_bool_to_boolean_object(true), // NULL取反为true
+        _ => native_bool_to_boolean_object(false),     // 其他类型取反为false
+    }
+}
+
+fn eval_minus_prefix_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
+    // 处理-运算符的逻辑
+    if right.type_obj() != "INTEGER" {
+        return get_null_object();
+    }
+
+    if let Some(int_obj) = right.as_any().downcast_ref::<Integer>() {
+        return Box::new(Integer::new(-int_obj.value));
+    }
+
+    get_null_object()
+}
+
+fn eval_infix_expression(
+    operator: &str,
+    left: Box<dyn Object>,
+    right: Box<dyn Object>,
+) -> Box<dyn Object> {
+    if left.type_obj() == "INTEGER" && right.type_obj() == "INTEGER" {
+        return eval_integer_infix_expression(operator, left, right);
+    } else {
+        get_null_object()
+    }
+}
+fn eval_integer_infix_expression(
+    operator: &str,
+    left: Box<dyn Object>,
+    right: Box<dyn Object>,
+) -> Box<dyn Object> {
+    let left_val = left
+        .as_any()
+        .downcast_ref::<object::Integer>()
+        .expect("左操作数不是整数");
+
+    let right_val = right
+        .as_any()
+        .downcast_ref::<object::Integer>()
+        .expect("右操作数不是整数");
+
+    match operator {
+        "+" => Box::new(Integer::new(left_val.value + right_val.value)),
+        "-" => Box::new(Integer::new(left_val.value - right_val.value)),
+        "*" => Box::new(Integer::new(left_val.value * right_val.value)),
+        "/" => Box::new(Integer::new(left_val.value / right_val.value)),
+        "<" => native_bool_to_boolean_object(left_val.value < right_val.value),
+        ">" => native_bool_to_boolean_object(left_val.value > right_val.value),
+        "==" => native_bool_to_boolean_object(left_val.value == right_val.value),
+        "!=" => native_bool_to_boolean_object(left_val.value != right_val.value),
+        _ => get_null_object(),
+    }
 }

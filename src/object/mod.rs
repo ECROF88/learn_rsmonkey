@@ -5,3 +5,4 @@ pub mod integer;
 pub mod null;
 
 pub use boolean::Boolean;
+pub use integer::Integer;

@@ -12,8 +12,17 @@ use crate::{
 
 #[test]
 fn test_eval_integer_expression() {
-    let tests = vec![("5", 5i64), ("10", 10i64)];
-
+    let tests = vec![
+        ("5", 5_i64),
+        ("10", 10_i64),
+        ("-5", -5),
+        ("5+5+5-10", 5),
+        ("20+2* -10", 0),
+        ("2*(5+10)", 30),
+        ("(5+10*2+15/3)*2+ -10", 50),
+        ("2*2*2*2", 16),
+        ("3*(3*3)+1", 28),
+    ];
     for (input, expected) in tests {
         let evaluated = test_eval(input);
         test_integer_object(&evaluated, expected);
@@ -48,7 +57,14 @@ fn test_integer_object(obj: &Box<dyn Object>, expected: i64) {
 
 #[test]
 fn test_eval_boolean_expression() {
-    let tests = vec![("true", true), ("false", false)];
+    let tests = vec![
+        ("true", true),
+        ("false", false),
+        ("1>1", false),
+        ("1!=1", false),
+        ("1!=2", true),
+        ("1<2", true),
+    ];
 
     for (input, expected) in tests {
         let evaluated = test_eval(input);
@@ -73,5 +89,21 @@ fn test_boolean_object(obj: &Box<dyn Object>, expected: bool) {
         );
     } else {
         panic!("对象不能转换为Boolean类型");
+    }
+}
+
+#[test]
+fn test_bang_operator() {
+    let tests = vec![
+        ("!true", false),
+        ("!false", true),
+        ("!5", false),
+        ("!!true", true),
+        ("!!false", false),
+    ];
+
+    for (input, expected) in tests {
+        let evaluated = test_eval(input);
+        test_boolean_object(&evaluated, expected);
     }
 }
