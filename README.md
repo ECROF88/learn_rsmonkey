@@ -1,3 +1,3 @@
-Learn a golang tutorial book about a monkey interpreter
+Learn a golang tutorial book about a monkey interpreter.
 
-Write it in Rust
+Write it in Rust.
