@@ -1,10 +1,10 @@
 use crate::ast::{
     BlockStatement, Boolean, ExpressionStatement, IfExpression, InfixExpression, IntegerLiteral,
-    Node, NodeType, PrefixExpression, Program,
+    Node, NodeType, PrefixExpression, Program, ReturnStatement,
 };
 use crate::object::integer::Integer;
 use crate::object::null::Null;
-use crate::object::{self, Object, boolean};
+use crate::object::{self, Object, ReturnValue, boolean};
 
 // pub fn eval(node: &dyn Node) -> Box<dyn Object> {
 //     // 先尝试转换为 Program
@@ -91,14 +91,14 @@ fn native_bool_to_boolean_object(input: bool) -> Box<dyn Object> {
     }
 }
 
-fn get_null_object() -> Box<dyn Object> {
+pub fn get_null_object() -> Box<dyn Object> {
     Box::new(NULL.get_or_init(|| object::null::Null {}).clone())
 }
 
 pub fn eval(node: &dyn Node) -> Box<dyn Object> {
     // 处理Program
     if let Some(program) = node.as_any().downcast_ref::<Program>() {
-        return eval_statements(&program.statements);
+        return eval_program(&program.statements);
     }
 
     // 处理NodeType
@@ -113,7 +113,12 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 // 其他语句类型...
                 if let Some(block) = stmt.as_any().downcast_ref::<BlockStatement>() {
                     println!("eval block");
-                    return eval_statements(&block.statements);
+                    return eval_block_statement(&block);
+                }
+                if let Some(return_stmt) = stmt.as_any().downcast_ref::<ReturnStatement>() {
+                    println!("eval return statement");
+                    let val = eval(return_stmt.return_value.as_ref());
+                    return Box::new(ReturnValue::new(val));
                 }
             }
             // 处理表达式
@@ -153,12 +158,49 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
     get_null_object()
 }
 
-// 处理语句列表
-fn eval_statements(statements: &[NodeType]) -> Box<dyn Object> {
-    let mut result: Box<dyn Object> = Box::new(Null {});
+fn eval_program(statements: &[NodeType]) -> Box<dyn Object> {
+    let mut result = get_null_object();
 
     for statement in statements {
         result = eval(statement);
+
+        // 如果遇到返回值，需要解包它
+        if result.type_obj() == "RETURN_VALUE" {
+            if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
+                return return_value.take_value();
+            }
+        }
+    }
+
+    result
+}
+
+// 处理语句列表
+// fn eval_statements(statements: &[NodeType]) -> Box<dyn Object> {
+//     let mut result: Box<dyn Object> = Box::new(Null {});
+
+//     for statement in statements {
+//         result = eval(statement);
+
+//         if result.type_obj() == "RETURN_VALUE" {
+//             if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
+//                 return return_value.take_value();
+//             }
+//         }
+//     }
+
+//     result
+// }
+fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
+    let mut result = get_null_object();
+
+    for statement in &block.statements {
+        result = eval(statement);
+
+        // 块语句中遇到返回值，不解包而是直接返回
+        if result.type_obj() == "RETURN_VALUE" {
+            return result;
+        }
     }
 
     result
@@ -271,13 +313,13 @@ fn eval_if_expression(ie: &IfExpression) -> Box<dyn Object> {
     if is_truthy(&condition) {
         println!("condition is true");
         if let Some(block) = ie.consequence.as_any().downcast_ref::<BlockStatement>() {
-            return eval_statements(&block.statements);
+            return eval_block_statement(&block);
         }
         return eval(ie.consequence.as_ref());
     } else if let Some(alt) = &ie.alternative {
         println!("condition is false");
         if let Some(block) = alt.as_any().downcast_ref::<BlockStatement>() {
-            return eval_statements(&block.statements);
+            return eval_block_statement(&block);
         }
         return eval(alt.as_ref());
     }
