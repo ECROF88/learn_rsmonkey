@@ -33,6 +33,7 @@ fn test_eval(input: &str) -> Box<dyn Object> {
     let l = Lexer::new(input.to_string());
     let mut p = Parser::new(l);
     let program = p.parse_program();
+    // println!("AST: {:#?}", program); // 打印AST
     eval(program.as_ref())
 }
 
@@ -107,3 +108,46 @@ fn test_bang_operator() {
         test_boolean_object(&evaluated, expected);
     }
 }
+
+#[test]
+fn test_eval_if_else_expression() {
+    let tests = vec![
+        ("if (true) { 10 }", Some(10)),
+        ("if (false) { 10 }", None), // 新增：条件为false，无else分支
+        ("if (1) { 10 }", Some(10)),
+        ("if (1 < 2) { 10 }", Some(10)),
+        ("if (1 > 2) { 10 }", None), // 新增：条件为false，无else分支
+        ("if (1 > 2) { 10 } else { 20 }", Some(20)),
+        ("if (1 < 2) { 10 } else { 20 }", Some(10)),
+    ];
+
+    for (input, expected) in tests {
+        let evaluated = test_eval(input);
+        eprintln!("evaluated = {:?}", evaluated.inspect());
+        match expected {
+            Some(value) => {
+                // if let Some(_) = evaluated.as_any().downcast_ref::<Integer>() {
+                //     test_integer_object(&evaluated, value);
+                // } else {
+                //     panic!("not integer,get {}", evaluated.inspect())
+                // }
+                test_integer_object(&evaluated, value);
+            }
+            None => {
+                // test_null_object(&evaluated);
+                assert_eq!(
+                    evaluated.type_obj(),
+                    "NULL",
+                    "对象不是NULL。得到={:?}",
+                    evaluated.inspect()
+                );
+            }
+        }
+    }
+}
+
+// fn test_null_object(obj: &Box<dyn Object>) {
+//     if obj.type_obj() != "NULL" {
+//         panic!("not NULL,got {:?}", obj.inspect())
+//     }
+// }

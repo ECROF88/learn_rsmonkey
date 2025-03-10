@@ -1,6 +1,6 @@
 use crate::ast::{
-    BlockStatement, Boolean, ExpressionStatement, InfixExpression, IntegerLiteral, Node, NodeType,
-    PrefixExpression, Program,
+    BlockStatement, Boolean, ExpressionStatement, IfExpression, InfixExpression, IntegerLiteral,
+    Node, NodeType, PrefixExpression, Program,
 };
 use crate::object::integer::Integer;
 use crate::object::null::Null;
@@ -111,6 +111,10 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                     return eval(expr_stmt.expression.as_ref());
                 }
                 // 其他语句类型...
+                if let Some(block) = stmt.as_any().downcast_ref::<BlockStatement>() {
+                    println!("eval block");
+                    return eval_statements(&block.statements);
+                }
             }
             // 处理表达式
             NodeType::Expression(expr) => {
@@ -135,6 +139,10 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                     let right = eval(infix_expr.right.as_ref());
                     return eval_infix_expression(&infix_expr.operator, left, right);
                 }
+                if let Some(if_expr) = expr.as_any().downcast_ref::<IfExpression>() {
+                    println!("eval if expr");
+                    return eval_if_expression(if_expr);
+                }
             }
         }
     }
@@ -155,6 +163,7 @@ fn eval_statements(statements: &[NodeType]) -> Box<dyn Object> {
 
     result
 }
+
 fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Object> {
     match operator {
         "!" => eval_bang_operator_expression(right),
@@ -197,10 +206,36 @@ fn eval_infix_expression(
 ) -> Box<dyn Object> {
     if left.type_obj() == "INTEGER" && right.type_obj() == "INTEGER" {
         return eval_integer_infix_expression(operator, left, right);
+    } else if left.type_obj() == "BOOLEAN" && right.type_obj() == "BOOLEAN" {
+        return eval_boolean_infix_expression(operator, left, right);
     } else {
         get_null_object()
     }
 }
+
+fn eval_boolean_infix_expression(
+    operator: &str,
+    left: Box<dyn Object>,
+    right: Box<dyn Object>,
+) -> Box<dyn Object> {
+    let left_val = left
+        .as_any()
+        .downcast_ref::<object::Boolean>()
+        .expect("Left operand is not a Boolean")
+        .value;
+    let right_val = right
+        .as_any()
+        .downcast_ref::<object::Boolean>()
+        .expect("Right operand is not a Boolean")
+        .value;
+
+    match operator {
+        "==" => native_bool_to_boolean_object(left_val == right_val),
+        "!=" => native_bool_to_boolean_object(left_val != right_val),
+        _ => get_null_object(),
+    }
+}
+
 fn eval_integer_infix_expression(
     operator: &str,
     left: Box<dyn Object>,
@@ -226,5 +261,43 @@ fn eval_integer_infix_expression(
         "==" => native_bool_to_boolean_object(left_val.value == right_val.value),
         "!=" => native_bool_to_boolean_object(left_val.value != right_val.value),
         _ => get_null_object(),
+    }
+}
+
+fn eval_if_expression(ie: &IfExpression) -> Box<dyn Object> {
+    let condition = eval(ie.condition.as_ref());
+    println!("got condition:{:?}", condition.inspect());
+
+    if is_truthy(&condition) {
+        println!("condition is true");
+        if let Some(block) = ie.consequence.as_any().downcast_ref::<BlockStatement>() {
+            return eval_statements(&block.statements);
+        }
+        return eval(ie.consequence.as_ref());
+    } else if let Some(alt) = &ie.alternative {
+        println!("condition is false");
+        if let Some(block) = alt.as_any().downcast_ref::<BlockStatement>() {
+            return eval_statements(&block.statements);
+        }
+        return eval(alt.as_ref());
+    }
+    println!("if expression return none");
+    get_null_object()
+}
+fn is_truthy(obj: &Box<dyn Object>) -> bool {
+    match obj.type_obj().as_str() {
+        "NULL" => false,
+        "BOOLEAN" => {
+            // 对于布尔对象，获取其值
+            if let Some(bool_obj) = obj.as_any().downcast_ref::<object::Boolean>() {
+                bool_obj.value
+            } else {
+                false
+            }
+        }
+        _ => {
+            println!("other all return true");
+            true
+        }
     }
 }
