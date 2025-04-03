@@ -5,9 +5,9 @@ use crate::evaluator::evaluator::get_null_object;
 use object::RETURN_VALUE_OBJ;
 pub use object::{Object, ObjectType};
 pub mod boolean;
+pub mod error;
 pub mod integer;
 pub mod null;
-
 pub use boolean::Boolean;
 pub use integer::Integer;
 pub use null::Null;

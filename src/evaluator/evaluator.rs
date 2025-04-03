@@ -164,33 +164,26 @@ fn eval_program(statements: &[NodeType]) -> Box<dyn Object> {
     for statement in statements {
         result = eval(statement);
 
-        // 如果遇到返回值，需要解包它
-        if result.type_obj() == "RETURN_VALUE" {
-            if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
-                return return_value.take_value();
+        match result.type_obj().as_str() {
+            // 如果是返回值，解包并返回内部值
+            "RETURN_VALUE" => {
+                if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
+                    return return_value.take_value();
+                }
             }
+            // 如果是错误，直接返回错误对象
+            "ERROR" => {
+                // 错误对象无需解包，直接返回
+                return result;
+            }
+            // 其他类型继续执行
+            _ => {}
         }
     }
 
     result
 }
 
-// 处理语句列表
-// fn eval_statements(statements: &[NodeType]) -> Box<dyn Object> {
-//     let mut result: Box<dyn Object> = Box::new(Null {});
-
-//     for statement in statements {
-//         result = eval(statement);
-
-//         if result.type_obj() == "RETURN_VALUE" {
-//             if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
-//                 return return_value.take_value();
-//             }
-//         }
-//     }
-
-//     result
-// }
 fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
     let mut result = get_null_object();
 
@@ -198,7 +191,7 @@ fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
         result = eval(statement);
 
         // 块语句中遇到返回值，不解包而是直接返回
-        if result.type_obj() == "RETURN_VALUE" {
+        if result.type_obj() == "RETURN_VALUE" || result.type_obj() == "ERROR" {
             return result;
         }
     }
@@ -210,7 +203,11 @@ fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Obj
     match operator {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_prefix_operator_expression(right),
-        _ => get_null_object(),
+        // _ => get_null_object(),
+        _ => {
+            let error_msg = format!("unknown operator: {}{}", operator, right.type_obj());
+            new_error(error_msg)
+        }
     }
 }
 
@@ -231,7 +228,7 @@ fn eval_bang_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
 fn eval_minus_prefix_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
     // 处理-运算符的逻辑
     if right.type_obj() != "INTEGER" {
-        return get_null_object();
+        return new_error(format!("unknown operator: -{}", right.type_obj()));
     }
 
     if let Some(int_obj) = right.as_any().downcast_ref::<Integer>() {
@@ -250,8 +247,22 @@ fn eval_infix_expression(
         return eval_integer_infix_expression(operator, left, right);
     } else if left.type_obj() == "BOOLEAN" && right.type_obj() == "BOOLEAN" {
         return eval_boolean_infix_expression(operator, left, right);
+    } else if left.type_obj() != right.type_obj() {
+        let error_msg = format!(
+            "type mismatch: {} {} {}",
+            left.type_obj(),
+            operator,
+            right.type_obj()
+        );
+        return new_error(error_msg);
     } else {
-        get_null_object()
+        let error_msg = format!(
+            "unknown operator: {} {} {}",
+            left.type_obj(),
+            operator,
+            right.type_obj()
+        );
+        return new_error(error_msg);
     }
 }
 
@@ -274,7 +285,10 @@ fn eval_boolean_infix_expression(
     match operator {
         "==" => native_bool_to_boolean_object(left_val == right_val),
         "!=" => native_bool_to_boolean_object(left_val != right_val),
-        _ => get_null_object(),
+        _ => new_error(format!(
+            "unknown operator: {} {} {}",
+            "BOOLEAN", operator, "BOOLEAN"
+        )),
     }
 }
 
@@ -302,7 +316,13 @@ fn eval_integer_infix_expression(
         ">" => native_bool_to_boolean_object(left_val.value > right_val.value),
         "==" => native_bool_to_boolean_object(left_val.value == right_val.value),
         "!=" => native_bool_to_boolean_object(left_val.value != right_val.value),
-        _ => get_null_object(),
+        // _ => get_null_object(),
+        _ => new_error(format!(
+            "unknown operator:{} {} {}",
+            left.type_obj(),
+            operator,
+            right.type_obj()
+        )),
     }
 }
 
@@ -342,4 +362,8 @@ fn is_truthy(obj: &Box<dyn Object>) -> bool {
             true
         }
     }
+}
+
+fn new_error(message: String) -> Box<dyn Object> {
+    Box::new(object::error::Error { message })
 }

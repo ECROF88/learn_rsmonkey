@@ -4,6 +4,7 @@ use crate::{
     object::{
         Object,
         boolean::Boolean,
+        error::Error,
         integer::Integer,
         object::{BOOLEAN_OBJ, INTEGER_OBJ},
     },
@@ -158,5 +159,50 @@ fn test_return_statements() {
     for (input, expected) in tests {
         let evaluated = test_eval(input);
         test_integer_object(&evaluated, expected);
+    }
+}
+
+#[test]
+fn test_error_handling() {
+    let tests = vec![
+        ("5+true", "type mismatch: INTEGER + BOOLEAN"),
+        ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+        ("-true", "unknown operator: -BOOLEAN"),
+        ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+        ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+        (
+            "if (10 > 1) { true + false; }",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+        (
+            "if (10 > 1) {
+              if (10 > 1) {
+                return true + false;
+              }
+              return 1;
+            } ",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+    ];
+
+    for (input, expected_msg) in tests {
+        let evaluated = test_eval(input);
+
+        if evaluated.type_obj() != "ERROR" {
+            panic!(
+                "没有返回错误对象。得到={}({})",
+                evaluated.type_obj(),
+                evaluated.inspect()
+            );
+        }
+        let error_obj = match evaluated.as_any().downcast_ref::<Error>() {
+            Some(e) => e,
+            None => panic!("对象不能转换为Error类型"),
+        };
+        assert_eq!(
+            error_obj.message, expected_msg,
+            "错误消息不匹配。期望=\"{}\", 得到=\"{}\"",
+            expected_msg, error_obj.message
+        );
     }
 }
