@@ -72,6 +72,7 @@ use crate::object::{self, Object, ReturnValue, boolean};
 //         result = eval_node_type(statement);
 //     }
 
+use std::collections::btree_map::Values;
 //     result
 // }
 use std::sync::OnceLock;
@@ -118,6 +119,9 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 if let Some(return_stmt) = stmt.as_any().downcast_ref::<ReturnStatement>() {
                     println!("eval return statement");
                     let val = eval(return_stmt.return_value.as_ref());
+                    if is_error(&val) {
+                        return val;
+                    }
                     return Box::new(ReturnValue::new(val));
                 }
             }
@@ -136,12 +140,21 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 if let Some(prefix_epxr) = expr.as_any().downcast_ref::<PrefixExpression>() {
                     println!("Prefix!!!!!!!!!!!!!!!!!!!!");
                     let right = eval(prefix_epxr.right.as_ref());
+                    if is_error(&right) {
+                        return right;
+                    }
                     return eval_prefix_expression(&prefix_epxr.operator, right);
                 }
                 if let Some(infix_expr) = expr.as_any().downcast_ref::<InfixExpression>() {
                     println!("Infix!!!!!!!!!!!!!!!!!!!!");
                     let left = eval(infix_expr.left.as_ref());
+                    if is_error(&left) {
+                        return left;
+                    }
                     let right = eval(infix_expr.right.as_ref());
+                    if is_error(&right) {
+                        return right;
+                    }
                     return eval_infix_expression(&infix_expr.operator, left, right);
                 }
                 if let Some(if_expr) = expr.as_any().downcast_ref::<IfExpression>() {
@@ -328,6 +341,9 @@ fn eval_integer_infix_expression(
 
 fn eval_if_expression(ie: &IfExpression) -> Box<dyn Object> {
     let condition = eval(ie.condition.as_ref());
+    if is_error(&condition) {
+        return condition;
+    }
     println!("got condition:{:?}", condition.inspect());
 
     if is_truthy(&condition) {
@@ -366,4 +382,8 @@ fn is_truthy(obj: &Box<dyn Object>) -> bool {
 
 fn new_error(message: String) -> Box<dyn Object> {
     Box::new(object::error::Error { message })
+}
+
+fn is_error(obj: &Box<dyn Object>) -> bool {
+    obj.type_obj() == "ERROR"
 }
