@@ -1,10 +1,10 @@
 use crate::ast::{
-    BlockStatement, Boolean, ExpressionStatement, IfExpression, InfixExpression, IntegerLiteral,
-    Node, NodeType, PrefixExpression, Program, ReturnStatement,
+    BlockStatement, Boolean, ExpressionStatement, Identifier, IfExpression, InfixExpression,
+    IntegerLiteral, LetStatement, Node, NodeType, PrefixExpression, Program, ReturnStatement,
 };
+use crate::object::environment::Environment;
 use crate::object::integer::Integer;
-use crate::object::null::Null;
-use crate::object::{self, Object, ReturnValue, boolean};
+use crate::object::{self, Object, ReturnValue};
 
 // pub fn eval(node: &dyn Node) -> Box<dyn Object> {
 //     // 先尝试转换为 Program
@@ -71,13 +71,9 @@ use crate::object::{self, Object, ReturnValue, boolean};
 //     for statement in &block.statements {
 //         result = eval_node_type(statement);
 //     }
-
-use std::collections::btree_map::Values;
-//     result
-// }
 use std::sync::OnceLock;
 
-// 使用OnceLock来创建单例布尔对象
+// 使用OnceLock来创建单例对象
 static TRUE: OnceLock<object::Boolean> = OnceLock::new();
 static FALSE: OnceLock<object::Boolean> = OnceLock::new();
 static NULL: OnceLock<object::null::Null> = OnceLock::new();
@@ -96,10 +92,10 @@ pub fn get_null_object() -> Box<dyn Object> {
     Box::new(NULL.get_or_init(|| object::null::Null {}).clone())
 }
 
-pub fn eval(node: &dyn Node) -> Box<dyn Object> {
+pub fn eval(node: &dyn Node, env: &mut Environment) -> Box<dyn Object> {
     // 处理Program
     if let Some(program) = node.as_any().downcast_ref::<Program>() {
-        return eval_program(&program.statements);
+        return eval_program(&program.statements, env);
     }
 
     // 处理NodeType
@@ -109,20 +105,32 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
             NodeType::Statement(stmt) => {
                 // 处理表达式语句
                 if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
-                    return eval(expr_stmt.expression.as_ref());
+                    return eval(expr_stmt.expression.as_ref(), env);
                 }
                 // 其他语句类型...
                 if let Some(block) = stmt.as_any().downcast_ref::<BlockStatement>() {
                     println!("eval block");
-                    return eval_block_statement(&block);
+                    return eval_block_statement(&block, env);
                 }
                 if let Some(return_stmt) = stmt.as_any().downcast_ref::<ReturnStatement>() {
                     println!("eval return statement");
-                    let val = eval(return_stmt.return_value.as_ref());
+                    let val = eval(return_stmt.return_value.as_ref(), env);
                     if is_error(&val) {
                         return val;
                     }
                     return Box::new(ReturnValue::new(val));
+                }
+                if let Some(let_stmt) = stmt.as_any().downcast_ref::<LetStatement>() {
+                    println!("eval let statement");
+
+                    let val = eval(let_stmt.value.as_ref(), env);
+                    if is_error(&val) {
+                        return val;
+                    }
+
+                    // let cloned_obj = val.clone_object();
+                    env.set(&let_stmt.name.value, val);
+                    // env.set2(&let_stmt.name.value, val2);
                 }
             }
             // 处理表达式
@@ -139,7 +147,7 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 }
                 if let Some(prefix_epxr) = expr.as_any().downcast_ref::<PrefixExpression>() {
                     println!("Prefix!!!!!!!!!!!!!!!!!!!!");
-                    let right = eval(prefix_epxr.right.as_ref());
+                    let right = eval(prefix_epxr.right.as_ref(), env);
                     if is_error(&right) {
                         return right;
                     }
@@ -147,11 +155,11 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 }
                 if let Some(infix_expr) = expr.as_any().downcast_ref::<InfixExpression>() {
                     println!("Infix!!!!!!!!!!!!!!!!!!!!");
-                    let left = eval(infix_expr.left.as_ref());
+                    let left = eval(infix_expr.left.as_ref(), env);
                     if is_error(&left) {
                         return left;
                     }
-                    let right = eval(infix_expr.right.as_ref());
+                    let right = eval(infix_expr.right.as_ref(), env);
                     if is_error(&right) {
                         return right;
                     }
@@ -159,7 +167,11 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
                 }
                 if let Some(if_expr) = expr.as_any().downcast_ref::<IfExpression>() {
                     println!("eval if expr");
-                    return eval_if_expression(if_expr);
+                    return eval_if_expression(if_expr, env);
+                }
+                if let Some(identifier) = expr.as_any().downcast_ref::<Identifier>() {
+                    println!("Identifier: {}", identifier.value);
+                    return eval_identifier(identifier, env);
                 }
             }
         }
@@ -171,11 +183,11 @@ pub fn eval(node: &dyn Node) -> Box<dyn Object> {
     get_null_object()
 }
 
-fn eval_program(statements: &[NodeType]) -> Box<dyn Object> {
+fn eval_program(statements: &[NodeType], env: &mut Environment) -> Box<dyn Object> {
     let mut result = get_null_object();
 
     for statement in statements {
-        result = eval(statement);
+        result = eval(statement, env);
 
         match result.type_obj().as_str() {
             // 如果是返回值，解包并返回内部值
@@ -197,11 +209,11 @@ fn eval_program(statements: &[NodeType]) -> Box<dyn Object> {
     result
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
+fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Box<dyn Object> {
     let mut result = get_null_object();
 
     for statement in &block.statements {
-        result = eval(statement);
+        result = eval(statement, env);
 
         // 块语句中遇到返回值，不解包而是直接返回
         if result.type_obj() == "RETURN_VALUE" || result.type_obj() == "ERROR" {
@@ -210,6 +222,22 @@ fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
     }
 
     result
+}
+
+fn eval_identifier(node: &Identifier, env: &mut Environment) -> Box<dyn Object> {
+    if let Some(val) = env.get(&node.value) {
+        if let Some(int) = val.as_any().downcast_ref::<Integer>() {
+            println!("{} 的值是整数: {}", node.value, int.value);
+            Box::new(Integer::new(int.value))
+        } else if let Some(bool_val) = val.as_any().downcast_ref::<object::Boolean>() {
+            println!("{} 的值是布尔值: {}", node.value, bool_val.value);
+            native_bool_to_boolean_object(bool_val.value)
+        } else {
+            val.clone_object() // 通用clone方法，但是无法得到具体类型
+        }
+    } else {
+        new_error(format!("identifier not found: {}", node.value))
+    }
 }
 
 fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Object> {
@@ -339,8 +367,8 @@ fn eval_integer_infix_expression(
     }
 }
 
-fn eval_if_expression(ie: &IfExpression) -> Box<dyn Object> {
-    let condition = eval(ie.condition.as_ref());
+fn eval_if_expression(ie: &IfExpression, env: &mut Environment) -> Box<dyn Object> {
+    let condition = eval(ie.condition.as_ref(), env);
     if is_error(&condition) {
         return condition;
     }
@@ -349,15 +377,15 @@ fn eval_if_expression(ie: &IfExpression) -> Box<dyn Object> {
     if is_truthy(&condition) {
         println!("condition is true");
         if let Some(block) = ie.consequence.as_any().downcast_ref::<BlockStatement>() {
-            return eval_block_statement(&block);
+            return eval_block_statement(&block, env);
         }
-        return eval(ie.consequence.as_ref());
+        return eval(ie.consequence.as_ref(), env);
     } else if let Some(alt) = &ie.alternative {
         println!("condition is false");
         if let Some(block) = alt.as_any().downcast_ref::<BlockStatement>() {
-            return eval_block_statement(&block);
+            return eval_block_statement(&block, env);
         }
-        return eval(alt.as_ref());
+        return eval(alt.as_ref(), env);
     }
     println!("if expression return none");
     get_null_object()

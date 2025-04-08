@@ -6,3 +6,5 @@ JIT(just in time) interpreter:
 - 块语句中的处理 (eval_block_statement)：检测到返回值后，直接返回该返回值对象，不解包
 - 避免过早解包：如果在块语句内就解包了返回值，外层块就无法知道这是一个 return 语句的结果
 - 程序顶层处理 (eval_program)：检测到返回值后，将其解包并返回内部值
+
+

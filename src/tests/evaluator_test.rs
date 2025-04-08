@@ -4,6 +4,7 @@ use crate::{
     object::{
         Object,
         boolean::Boolean,
+        environment::Environment,
         error::Error,
         integer::Integer,
         object::{BOOLEAN_OBJ, INTEGER_OBJ},
@@ -35,10 +36,15 @@ fn test_eval(input: &str) -> Box<dyn Object> {
     let mut p = Parser::new(l);
     let program = p.parse_program();
     // println!("AST: {:#?}", program); // 打印AST
-    eval(program.as_ref())
+    let mut new_env = Environment::new();
+    eval(program.as_ref(), &mut new_env)
 }
 
-fn test_integer_object(obj: &Box<dyn Object>, expected: i64) {
+fn test_integer_object(
+    //obj: &dyn Object,
+    obj: &Box<dyn Object>,
+    expected: i64,
+) {
     if obj.type_obj() != INTEGER_OBJ {
         panic!("对象不是整数。得到={:?}", obj.inspect());
     }
@@ -183,6 +189,7 @@ fn test_error_handling() {
             } ",
             "unknown operator: BOOLEAN + BOOLEAN",
         ),
+        ("foobar", "identifier not found: foobar"),
     ];
 
     for (input, expected_msg) in tests {
@@ -204,5 +211,19 @@ fn test_error_handling() {
             "错误消息不匹配。期望=\"{}\", 得到=\"{}\"",
             expected_msg, error_obj.message
         );
+    }
+}
+
+#[test]
+fn test_let_statements() {
+    let tests = vec![
+        ("let a =5; a;", 5),
+        ("let a =5*5;a;", 25),
+        ("let a = 5;let b=a;b;", 5),
+        ("let a=5;let b=a; let c = a+b+5;c;", 15),
+    ];
+
+    for (input, expected) in tests {
+        test_integer_object(&test_eval(input), expected);
     }
 }

@@ -4,6 +4,7 @@ use crate::{
     ast::Node,
     evaluator::{self, evaluator::eval},
     lexer::lexer::Lexer,
+    object::environment::Environment,
     parser::parser::Parser,
     token::token::TokenType,
 };
@@ -24,6 +25,7 @@ const MONKEY_FACE: &str = r#"            __,__
 pub fn start() {
     let stdin = io::stdin();
 
+    let mut env = Environment::new();
     loop {
         print!("{}", PROMPT);
         io::stdout().flush().expect("fail");
@@ -41,7 +43,7 @@ pub fn start() {
                 }
 
                 // 评估程序
-                let evaluated = eval(program.as_ref());
+                let evaluated = eval(program.as_ref(), &mut env);
 
                 // 打印评估结果
                 if evaluated.type_obj() != "NULL" {

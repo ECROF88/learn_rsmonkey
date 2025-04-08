@@ -14,4 +14,9 @@ impl Object for Error {
     fn type_obj(&self) -> super::ObjectType {
         ERROR_OBJ.to_string()
     }
+    fn clone_object(&self) -> Box<dyn Object> {
+        Box::new(Self {
+            message: self.message.clone(),
+        })
+    }
 }

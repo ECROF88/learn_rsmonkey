@@ -15,6 +15,9 @@ impl Object for Boolean {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+    fn clone_object(&self) -> Box<dyn Object> {
+        Box::new(Self { value: self.value })
+    }
 }
 
 impl Boolean {

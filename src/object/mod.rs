@@ -5,6 +5,7 @@ use crate::evaluator::evaluator::get_null_object;
 use object::RETURN_VALUE_OBJ;
 pub use object::{Object, ObjectType};
 pub mod boolean;
+pub mod environment;
 pub mod error;
 pub mod integer;
 pub mod null;
@@ -42,5 +43,10 @@ impl Object for ReturnValue {
     }
     fn type_obj(&self) -> ObjectType {
         RETURN_VALUE_OBJ.to_string()
+    }
+    fn clone_object(&self) -> Box<dyn Object> {
+        Box::new(Self {
+            value: RefCell::new(self.value.borrow().clone_object()),
+        })
     }
 }

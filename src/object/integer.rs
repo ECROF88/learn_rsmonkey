@@ -15,6 +15,9 @@ impl Object for Integer {
     fn type_obj(&self) -> ObjectType {
         INTEGER_OBJ.to_string()
     }
+    fn clone_object(&self) -> Box<dyn Object> {
+        Box::new(Self { value: self.value })
+    }
 }
 
 impl Integer {

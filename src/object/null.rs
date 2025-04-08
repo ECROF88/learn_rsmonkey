@@ -13,4 +13,7 @@ impl Object for Null {
     fn type_obj(&self) -> super::ObjectType {
         NULL_OBJ.to_string()
     }
+    fn clone_object(&self) -> Box<dyn Object> {
+        Box::new(Null {})
+    }
 }
